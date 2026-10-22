@@ -1,0 +1,515 @@
+package com.ldmaster.sinuca.render
+
+import android.content.Context
+import android.opengl.GLES30
+import android.opengl.GLSurfaceView
+import android.opengl.Matrix
+import android.util.Log
+import com.ldmaster.sinuca.game.GameWorld
+import com.ldmaster.sinuca.game.Table
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import javax.microedition.khronos.egl.EGLConfig
+import javax.microedition.khronos.opengles.GL10
+import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.pow
+import kotlin.math.sin
+
+class GameRenderer(
+    private val context: Context,
+    private val world: GameWorld,
+    private val mirrored: Boolean
+) : GLSurfaceView.Renderer {
+
+    @Volatile
+    var localPlayer: Int = 0
+
+    private var width = 1
+    private var height = 1
+    private val viewProjection = FloatArray(16)
+    private val projection = FloatArray(16)
+    private val view = FloatArray(16)
+    private val eye = FloatArray(3)
+
+    private var program = 0
+    private var lineProgram = 0
+    private var tableMesh: GpuMesh? = null
+    private var cueMesh: GpuMesh? = null
+    private var sphereMesh: GpuMesh? = null
+    private var floorMesh: GpuMesh? = null
+    private var lineBuffer = 0
+    private var cueHalfLength = 0.725f
+    private var lastFrame = 0L
+
+    private var uMvp = 0
+    private var uModel = 0
+    private var uColor = 0
+    private var uStripe = 0
+    private var uUseColor = 0
+    private var uEye = 0
+    private var uLineMvp = 0
+    private var uLineColor = 0
+
+    override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
+        GLES30.glClearColor(0.016f, 0.023f, 0.038f, 1f)
+        GLES30.glEnable(GLES30.GL_DEPTH_TEST)
+        GLES30.glEnable(GLES30.GL_BLEND)
+        GLES30.glBlendFunc(GLES30.GL_SRC_ALPHA, GLES30.GL_ONE_MINUS_SRC_ALPHA)
+
+        program = linkProgram(VERTEX_SHADER, FRAGMENT_SHADER)
+        uMvp = GLES30.glGetUniformLocation(program, "uMVP")
+        uModel = GLES30.glGetUniformLocation(program, "uModel")
+        uColor = GLES30.glGetUniformLocation(program, "uColor")
+        uStripe = GLES30.glGetUniformLocation(program, "uStripe")
+        uUseColor = GLES30.glGetUniformLocation(program, "uUseColor")
+        uEye = GLES30.glGetUniformLocation(program, "uEye")
+
+        lineProgram = linkProgram(LINE_VERTEX_SHADER, LINE_FRAGMENT_SHADER)
+        uLineMvp = GLES30.glGetUniformLocation(lineProgram, "uMVP")
+        uLineColor = GLES30.glGetUniformLocation(lineProgram, "uColor")
+
+        try {
+            tableMesh = GpuMesh(GlbLoader.load(context, "models/table.glb"))
+            val cue = GlbLoader.load(context, "models/cue.glb")
+            cueMesh = GpuMesh(cue)
+            var maxX = 0f
+            for (i in 0 until cue.vertexCount) {
+                val value = abs(cue.positions[i * 3])
+                if (value > maxX) maxX = value
+            }
+            cueHalfLength = maxX
+        } catch (error: Exception) {
+            Log.e(TAG, "failed to load models", error)
+        }
+
+        sphereMesh = GpuMesh(sphere(Table.BALL_RADIUS.toFloat()))
+        floorMesh = GpuMesh(floor())
+
+        val ids = IntArray(1)
+        GLES30.glGenBuffers(1, ids, 0)
+        lineBuffer = ids[0]
+        lastFrame = System.nanoTime()
+    }
+
+    override fun onSurfaceChanged(gl: GL10?, surfaceWidth: Int, surfaceHeight: Int) {
+        width = surfaceWidth.coerceAtLeast(1)
+        height = surfaceHeight.coerceAtLeast(1)
+        GLES30.glViewport(0, 0, width, height)
+        val aspect = width.toFloat() / height.toFloat()
+        Matrix.perspectiveM(projection, 0, 46f, aspect, 0.1f, 40f)
+        val eyeZ = if (mirrored) 3.15f else -3.15f
+        eye[0] = 0f
+        eye[1] = 2.62f
+        eye[2] = eyeZ
+        Matrix.setLookAtM(
+            view, 0,
+            eye[0], eye[1], eye[2],
+            0f, 0.70f, 0f,
+            0f, 1f, 0f
+        )
+        Matrix.multiplyMM(viewProjection, 0, projection, 0, view, 0)
+    }
+
+    override fun onDrawFrame(gl: GL10?) {
+        val now = System.nanoTime()
+        val dt = ((now - lastFrame) / 1_000_000_000.0).coerceIn(0.0, 0.05)
+        lastFrame = now
+        synchronized(world) { world.step(dt) }
+
+        GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT or GLES30.GL_DEPTH_BUFFER_BIT)
+
+        GLES30.glUseProgram(program)
+        GLES30.glUniform3f(uEye, eye[0], eye[1], eye[2])
+        drawMesh(floorMesh, viewProjection, IDENTITY, useVertexColor = false, stripe = false, color = WHITE)
+        drawMesh(tableMesh, viewProjection, IDENTITY, useVertexColor = false, stripe = false, color = WHITE)
+
+        val model = FloatArray(16)
+        for (ball in world.balls) {
+            if (!ball.active) continue
+            Matrix.setIdentityM(model, 0)
+            Matrix.translateM(model, 0, ball.x.toFloat(), Table.BALL_Y.toFloat(), ball.z.toFloat())
+            val mvp = FloatArray(16)
+            Matrix.multiplyMM(mvp, 0, viewProjection, 0, model, 0)
+            val color = ballColor(ball.number)
+            drawMesh(
+                sphereMesh, mvp, model,
+                useVertexColor = true,
+                stripe = ball.number in 9..15,
+                color = color
+            )
+        }
+
+        drawCue(model)
+
+        val cue = world.cueBall()
+        if (cue.active) {
+            GLES30.glUseProgram(lineProgram)
+            GLES30.glUniformMatrix4fv(uLineMvp, 1, false, viewProjection, 0)
+            GLES30.glUniform4f(uLineColor, 1f, 0.86f, 0.35f, 0.9f)
+            val directionX = cos(world.aimAngle).toFloat()
+            val directionZ = sin(world.aimAngle).toFloat()
+            val start = floatArrayOf(
+                cue.x.toFloat() + directionX * (Table.BALL_RADIUS.toFloat() + 0.004f),
+                Table.BALL_Y.toFloat(),
+                cue.z.toFloat() + directionZ * (Table.BALL_RADIUS.toFloat() + 0.004f)
+            )
+            val end = floatArrayOf(
+                start[0] + directionX * 0.78f,
+                start[1],
+                start[2] + directionZ * 0.78f
+            )
+            val buffer = ByteBuffer.allocateDirect(6 * 4)
+                .order(ByteOrder.nativeOrder())
+                .asFloatBuffer()
+            buffer.put(start).put(end).position(0)
+            GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, lineBuffer)
+            GLES30.glBufferData(
+                GLES30.GL_ARRAY_BUFFER,
+                6 * 4,
+                buffer,
+                GLES30.GL_DYNAMIC_DRAW
+            )
+            GLES30.glEnableVertexAttribArray(0)
+            GLES30.glVertexAttribPointer(0, 3, GLES30.GL_FLOAT, false, 0, 0)
+            GLES30.glLineWidth(3f)
+            GLES30.glDrawArrays(GLES30.GL_LINES, 0, 2)
+            GLES30.glDisableVertexAttribArray(0)
+            GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, 0)
+        }
+        GLES30.glUseProgram(0)
+    }
+
+    private fun drawCue(model: FloatArray) {
+        val mesh = cueMesh ?: return
+        val cue = world.cueBall()
+        if (!cue.active || world.winner >= 0 || world.moving) return
+        if (!world.canShoot(localPlayer)) return
+        val directionX = cos(world.aimAngle)
+        val directionZ = sin(world.aimAngle)
+        val offset = cueHalfLength + Table.BALL_RADIUS + 0.02
+        val centerX = cue.x - directionX * offset
+        val centerZ = cue.z - directionZ * offset
+        val theta = atan2(directionZ, -directionX)
+
+        Matrix.setIdentityM(model, 0)
+        Matrix.translateM(model, 0, centerX.toFloat(), Table.BALL_Y.toFloat(), centerZ.toFloat())
+        Matrix.rotateM(model, 0, Math.toDegrees(theta).toFloat(), 0f, 1f, 0f)
+        val mvp = FloatArray(16)
+        Matrix.multiplyMM(mvp, 0, viewProjection, 0, model, 0)
+        GLES30.glUseProgram(program)
+        GLES30.glUniform3f(uEye, eye[0], eye[1], eye[2])
+        drawMesh(mesh, mvp, model, useVertexColor = false, stripe = false, color = WHITE)
+    }
+
+    private fun drawMesh(
+        mesh: GpuMesh?,
+        mvp: FloatArray,
+        model: FloatArray,
+        useVertexColor: Boolean,
+        stripe: Boolean,
+        color: FloatArray
+    ) {
+        if (mesh == null) return
+        GLES30.glUniformMatrix4fv(uMvp, 1, false, mvp, 0)
+        GLES30.glUniformMatrix4fv(uModel, 1, false, model, 0)
+        GLES30.glUniform1f(uUseColor, if (useVertexColor) 1f else 0f)
+        GLES30.glUniform1f(uStripe, if (stripe) 1f else 0f)
+        GLES30.glUniform3f(uColor, color[0], color[1], color[2])
+        mesh.draw()
+    }
+
+    fun aimAt(screenX: Float, screenY: Float) {
+        val point = screenToTable(screenX, screenY) ?: return
+        synchronized(world) { world.aimAt(point[0].toDouble(), point[1].toDouble()) }
+    }
+
+    private fun screenToTable(screenX: Float, screenY: Float): FloatArray? {
+        val inverse = FloatArray(16)
+        if (!Matrix.invertM(inverse, 0, viewProjection, 0)) return null
+        val ndcX = 2f * screenX / width - 1f
+        val ndcY = 1f - 2f * screenY / height
+        val near = unproject(inverse, ndcX, ndcY, -1f)
+        val far = unproject(inverse, ndcX, ndcY, 1f)
+        val denominator = far[1] - near[1]
+        if (abs(denominator) < 1e-6f) return null
+        val t = (Table.BALL_Y.toFloat() - near[1]) / denominator
+        if (t < 0f || t > 1.5f) return null
+        return floatArrayOf(
+            near[0] + t * (far[0] - near[0]),
+            near[2] + t * (far[2] - near[2])
+        )
+    }
+
+    private fun unproject(inverse: FloatArray, x: Float, y: Float, z: Float): FloatArray {
+        val vx = inverse[0] * x + inverse[4] * y + inverse[8] * z + inverse[12]
+        val vy = inverse[1] * x + inverse[5] * y + inverse[9] * z + inverse[13]
+        val vz = inverse[2] * x + inverse[6] * y + inverse[10] * z + inverse[14]
+        val vw = inverse[3] * x + inverse[7] * y + inverse[11] * z + inverse[15]
+        val w = if (abs(vw) < 1e-9f) 1f else vw
+        return floatArrayOf(vx / w, vy / w, vz / w)
+    }
+
+    private fun ballColor(number: Int): FloatArray = when (number) {
+        0 -> linear(0.97f, 0.97f, 0.95f)
+        1, 9 -> linear(0.93f, 0.72f, 0.12f)
+        2, 10 -> linear(0.10f, 0.28f, 0.75f)
+        3, 11 -> linear(0.82f, 0.12f, 0.10f)
+        4, 12 -> linear(0.35f, 0.12f, 0.55f)
+        5, 13 -> linear(0.95f, 0.45f, 0.06f)
+        6, 14 -> linear(0.05f, 0.42f, 0.18f)
+        7, 15 -> linear(0.48f, 0.09f, 0.10f)
+        else -> linear(0.06f, 0.06f, 0.06f)
+    }
+
+    private fun linear(r: Float, g: Float, b: Float): FloatArray =
+        floatArrayOf(r.pow(2.2f), g.pow(2.2f), b.pow(2.2f))
+
+    private fun sphere(radius: Float, segments: Int = 30, rings: Int = 18): MeshData {
+        val positions = ArrayList<Float>()
+        val normals = ArrayList<Float>()
+        val colors = ArrayList<Float>()
+        val indices = ArrayList<Int>()
+        for (ring in 0..rings) {
+            val theta = Math.PI * ring / rings
+            val y = cos(theta)
+            val ringRadius = sin(theta)
+            for (segment in 0..segments) {
+                val phi = 2.0 * Math.PI * segment / segments
+                val x = ringRadius * cos(phi)
+                val z = ringRadius * sin(phi)
+                positions.add((x * radius).toFloat())
+                positions.add((y * radius).toFloat())
+                positions.add((z * radius).toFloat())
+                normals.add(x.toFloat())
+                normals.add(y.toFloat())
+                normals.add(z.toFloat())
+                colors.add(1f)
+                colors.add(1f)
+                colors.add(1f)
+            }
+        }
+        for (ring in 0 until rings) {
+            for (segment in 0 until segments) {
+                val a = ring * (segments + 1) + segment
+                val b = a + segments + 1
+                indices.add(a)
+                indices.add(b)
+                indices.add(a + 1)
+                indices.add(a + 1)
+                indices.add(b)
+                indices.add(b + 1)
+            }
+        }
+        return MeshData(
+            positions.toFloatArray(),
+            normals.toFloatArray(),
+            colors.toFloatArray(),
+            ShortArray(indices.size) { indices[it].toShort() }
+        )
+    }
+
+    private fun floor(): MeshData {
+        val size = 9f
+        return MeshData(
+            floatArrayOf(
+                -size, 0f, -size,
+                size, 0f, -size,
+                size, 0f, size,
+                -size, 0f, size
+            ),
+            floatArrayOf(
+                0f, 1f, 0f,
+                0f, 1f, 0f,
+                0f, 1f, 0f,
+                0f, 1f, 0f
+            ),
+            floatArrayOf(
+                0.055f, 0.065f, 0.085f,
+                0.055f, 0.065f, 0.085f,
+                0.055f, 0.065f, 0.085f,
+                0.055f, 0.065f, 0.085f
+            ),
+            shortArrayOf(0, 1, 2, 0, 2, 3)
+        )
+    }
+
+    private fun linkProgram(vertexSource: String, fragmentSource: String): Int {
+        val vertex = compile(GLES30.GL_VERTEX_SHADER, vertexSource)
+        val fragment = compile(GLES30.GL_FRAGMENT_SHADER, fragmentSource)
+        val id = GLES30.glCreateProgram()
+        GLES30.glAttachShader(id, vertex)
+        GLES30.glAttachShader(id, fragment)
+        GLES30.glLinkProgram(id)
+        val status = IntArray(1)
+        GLES30.glGetProgramiv(id, GLES30.GL_LINK_STATUS, status, 0)
+        if (status[0] == 0) {
+            val log = GLES30.glGetProgramInfoLog(id)
+            throw IllegalStateException("program link failed: $log")
+        }
+        GLES30.glDeleteShader(vertex)
+        GLES30.glDeleteShader(fragment)
+        return id
+    }
+
+    private fun compile(type: Int, source: String): Int {
+        val id = GLES30.glCreateShader(type)
+        GLES30.glShaderSource(id, source)
+        GLES30.glCompileShader(id)
+        val status = IntArray(1)
+        GLES30.glGetShaderiv(id, GLES30.GL_COMPILE_STATUS, status, 0)
+        if (status[0] == 0) {
+            val log = GLES30.glGetShaderInfoLog(id)
+            GLES30.glDeleteShader(id)
+            throw IllegalStateException("shader compile failed: $log")
+        }
+        return id
+    }
+
+    private class GpuMesh(mesh: MeshData) {
+        private val vertexBuffer: IntArray
+        private val indexBuffer: IntArray
+        private val count: Int
+
+        init {
+            val stride = 9
+            val vertexData = FloatArray(mesh.vertexCount * stride)
+            var at = 0
+            for (i in 0 until mesh.vertexCount) {
+                vertexData[at++] = mesh.positions[i * 3]
+                vertexData[at++] = mesh.positions[i * 3 + 1]
+                vertexData[at++] = mesh.positions[i * 3 + 2]
+                vertexData[at++] = mesh.normals[i * 3]
+                vertexData[at++] = mesh.normals[i * 3 + 1]
+                vertexData[at++] = mesh.normals[i * 3 + 2]
+                vertexData[at++] = mesh.colors[i * 3]
+                vertexData[at++] = mesh.colors[i * 3 + 1]
+                vertexData[at++] = mesh.colors[i * 3 + 2]
+            }
+            val vertices = ByteBuffer.allocateDirect(vertexData.size * 4)
+                .order(ByteOrder.nativeOrder())
+                .asFloatBuffer()
+            vertices.put(vertexData).position(0)
+            val indices = ByteBuffer.allocateDirect(mesh.indices.size * 2)
+                .order(ByteOrder.nativeOrder())
+                .asShortBuffer()
+            indices.put(mesh.indices).position(0)
+
+            vertexBuffer = IntArray(1)
+            indexBuffer = IntArray(1)
+            GLES30.glGenBuffers(1, vertexBuffer, 0)
+            GLES30.glGenBuffers(1, indexBuffer, 0)
+            GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, vertexBuffer[0])
+            GLES30.glBufferData(
+                GLES30.GL_ARRAY_BUFFER,
+                vertexData.size * 4,
+                vertices,
+                GLES30.GL_STATIC_DRAW
+            )
+            GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER, indexBuffer[0])
+            GLES30.glBufferData(
+                GLES30.GL_ELEMENT_ARRAY_BUFFER,
+                mesh.indices.size * 2,
+                indices,
+                GLES30.GL_STATIC_DRAW
+            )
+            count = mesh.indices.size
+        }
+
+        fun draw() {
+            GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, vertexBuffer[0])
+            GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER, indexBuffer[0])
+            val stride = 9 * 4
+            GLES30.glEnableVertexAttribArray(0)
+            GLES30.glVertexAttribPointer(0, 3, GLES30.GL_FLOAT, false, stride, 0)
+            GLES30.glEnableVertexAttribArray(1)
+            GLES30.glVertexAttribPointer(1, 3, GLES30.GL_FLOAT, false, stride, 3 * 4)
+            GLES30.glEnableVertexAttribArray(2)
+            GLES30.glVertexAttribPointer(2, 3, GLES30.GL_FLOAT, false, stride, 6 * 4)
+            GLES30.glDrawElements(GLES30.GL_TRIANGLES, count, GLES30.GL_UNSIGNED_SHORT, 0)
+            GLES30.glDisableVertexAttribArray(0)
+            GLES30.glDisableVertexAttribArray(1)
+            GLES30.glDisableVertexAttribArray(2)
+            GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, 0)
+            GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER, 0)
+        }
+    }
+
+    companion object {
+        private const val TAG = "GameRenderer"
+
+        private val IDENTITY = floatArrayOf(
+            1f, 0f, 0f, 0f,
+            0f, 1f, 0f, 0f,
+            0f, 0f, 1f, 0f,
+            0f, 0f, 0f, 1f
+        )
+        private val WHITE = floatArrayOf(1f, 1f, 1f)
+
+        private const val VERTEX_SHADER = """#version 300 es
+layout(location = 0) in vec3 aPos;
+layout(location = 1) in vec3 aNormal;
+layout(location = 2) in vec3 aColor;
+uniform mat4 uMVP;
+uniform mat4 uModel;
+out vec3 vNormal;
+out vec3 vColor;
+out vec3 vLocal;
+out vec3 vWorld;
+void main() {
+    vec4 world = uModel * vec4(aPos, 1.0);
+    vWorld = world.xyz;
+    vNormal = mat3(uModel) * aNormal;
+    vColor = aColor;
+    vLocal = aPos;
+    gl_Position = uMVP * vec4(aPos, 1.0);
+}
+"""
+
+        private const val FRAGMENT_SHADER = """#version 300 es
+precision mediump float;
+in vec3 vNormal;
+in vec3 vColor;
+in vec3 vLocal;
+in vec3 vWorld;
+uniform vec3 uColor;
+uniform float uStripe;
+uniform float uUseColor;
+uniform vec3 uEye;
+out vec4 fragColor;
+void main() {
+    vec3 base = mix(vColor, uColor, uUseColor);
+    if (uStripe > 0.5) {
+        float band = smoothstep(0.55, 0.40, abs(normalize(vLocal).y));
+        base = mix(vec3(0.93), base, band);
+    }
+    vec3 n = normalize(vNormal);
+    vec3 l = normalize(vec3(0.35, 1.0, 0.25));
+    vec3 v = normalize(uEye - vWorld);
+    vec3 h = normalize(l + v);
+    float diffuse = max(dot(n, l), 0.0);
+    float specular = pow(max(dot(n, h), 0.0), 48.0) * 0.30;
+    vec3 lit = base * (0.40 + 0.80 * diffuse) + vec3(specular);
+    fragColor = vec4(pow(clamp(lit, 0.0, 1.0), vec3(1.0 / 2.2)), 1.0);
+}
+"""
+
+        private const val LINE_VERTEX_SHADER = """#version 300 es
+layout(location = 0) in vec3 aPos;
+uniform mat4 uMVP;
+void main() {
+    gl_Position = uMVP * vec4(aPos, 1.0);
+}
+"""
+
+        private const val LINE_FRAGMENT_SHADER = """#version 300 es
+precision mediump float;
+uniform vec4 uColor;
+out vec4 fragColor;
+void main() {
+    fragColor = uColor;
+}
+"""
+    }
+}

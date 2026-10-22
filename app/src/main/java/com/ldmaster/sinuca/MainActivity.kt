@@ -1,0 +1,383 @@
+package com.ldmaster.sinuca
+
+import android.Manifest
+import android.annotation.SuppressLint
+import android.app.Activity
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothDevice
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.content.pm.PackageManager
+import android.content.res.ColorStateList
+import android.graphics.Color
+import android.graphics.Typeface
+import android.os.Build
+import android.os.Bundle
+import android.view.Gravity
+import android.view.View
+import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.TextView
+import android.widget.Toast
+import com.ldmaster.sinuca.net.BluetoothGame
+import com.ldmaster.sinuca.net.NetMessage
+import com.ldmaster.sinuca.net.Session
+
+class MainActivity : Activity() {
+
+    private var adapter: BluetoothAdapter? = null
+    private var service: BluetoothGame? = null
+    private var pendingAction: (() -> Unit)? = null
+    private var afterEnable: (() -> Unit)? = null
+    private var connectingAsHost = false
+    private var receiverRegistered = false
+
+    private lateinit var status: TextView
+    private lateinit var devices: LinearLayout
+    private val found = LinkedHashMap<String, BluetoothDevice>()
+
+    private val menuListener = object : BluetoothGame.Listener {
+        override fun onConnected(peer: String) {
+            runOnUiThread {
+                status.text = "Conectado a $peer"
+                startGame(if (connectingAsHost) 0 else 1)
+            }
+        }
+
+        override fun onMessage(message: NetMessage) = Unit
+
+        override fun onDisconnected(reason: String) {
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                status.text = reason
+                service = null
+                Session.service = null
+            }
+        }
+    }
+
+    private val discoveryReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                BluetoothDevice.ACTION_FOUND -> {
+                    val device = if (Build.VERSION.SDK_INT >= 33) {
+                        intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
+                    }
+                    if (device != null) addDevice(device, "encontrado")
+                }
+                BluetoothAdapter.ACTION_DISCOVERY_FINISHED -> {
+                    if (found.isEmpty()) {
+                        status.text = "Nenhum aparelho encontrado. Pareie os celulares nas configurações do Android."
+                    }
+                }
+            }
+        }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        adapter = BluetoothAdapter.getDefaultAdapter()
+        setContentView(buildUi())
+        registerDiscovery()
+        status.text = if (adapter == null) {
+            "Bluetooth indisponível neste aparelho. Use o treino local."
+        } else {
+            "Pareie os dois celulares nas configurações do Android antes de jogar."
+        }
+        if (!hasPermissions()) requestPermissions(requiredPermissions(), REQUEST_PERMISSIONS)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (Session.service == null && service != null) {
+            service?.close()
+            service = null
+            status.text = "Partida encerrada."
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (receiverRegistered) {
+            runCatching { unregisterReceiver(discoveryReceiver) }
+            receiverRegistered = false
+        }
+        if (Session.service == null) {
+            service?.close()
+            service = null
+        }
+    }
+
+    private fun buildUi(): View {
+        val scroll = ScrollView(this).apply {
+            setBackgroundColor(Color.parseColor("#0A0F18"))
+            isFillViewport = true
+        }
+        val column = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(28), dp(24), dp(28))
+        }
+        scroll.addView(column, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+
+        column.addView(text("SINUCA", 36f, "#F2F6FA", bold = true))
+        column.addView(text("Bluetooth · 2 jogadores", 16f, "#7FD1A6"))
+        column.addView(text("Bolas 1–7 para você, 9–15 para o adversário. A 8 decide.", 14f, "#9AA8B8").apply {
+            setPadding(0, dp(10), 0, dp(18))
+        })
+
+        column.addView(button("Criar partida (host)", "#1F6F4A") { hostGame() })
+        column.addView(button("Entrar em partida", "#1B4F72") { joinGame() })
+        column.addView(button("Treino local", "#3B3B4A") { practice() })
+
+        status = text("Pronto.", 14f, "#C7D2DE").apply {
+            setPadding(0, dp(20), 0, dp(12))
+        }
+        column.addView(status)
+
+        column.addView(text("DISPOSITIVOS", 12f, "#66758A", bold = true).apply {
+            letterSpacing = 0.12f
+        })
+        column.addView(
+            text(
+                "O host precisa aceitar ficar visível. Se a conexão falhar, pareie os aparelhos no Android e tente novamente.",
+                12f,
+                "#66758A"
+            ).apply { setPadding(0, dp(6), 0, dp(6)) }
+        )
+
+        devices = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        column.addView(devices, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+
+        column.addView(
+            text(
+                "Sem Bluetooth? O treino local usa a mesma física e as mesmas regras no mesmo aparelho.",
+                12f,
+                "#66758A"
+            ).apply { setPadding(0, dp(20), 0, 0) }
+        )
+        return scroll
+    }
+
+    private fun hostGame() {
+        ensurePermissions {
+            ensureEnabled {
+                runCatching {
+                    startActivityForResult(
+                        Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE)
+                            .putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300),
+                        REQUEST_DISCOVERABLE
+                    )
+                }
+                connectingAsHost = true
+                launchService(host = true, device = null)
+                status.text = "Aguardando o outro jogador… Deixe este aparelho visível."
+            }
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun joinGame() {
+        ensurePermissions {
+            ensureEnabled {
+                devices.removeAllViews()
+                found.clear()
+                val bonded = try {
+                    adapter?.bondedDevices ?: emptySet()
+                } catch (error: SecurityException) {
+                    emptySet()
+                }
+                for (device in bonded) addDevice(device, "pareado")
+                if (bonded.isEmpty()) {
+                    status.text = "Nenhum aparelho pareado. Pareie nas configurações do Android."
+                }
+                runCatching { adapter?.cancelDiscovery() }
+                val started = try {
+                    adapter?.startDiscovery() == true
+                } catch (error: SecurityException) {
+                    false
+                }
+                status.text = if (started) "Procurando aparelhos Bluetooth…" else "Mostrando aparelhos pareados."
+            }
+        }
+    }
+
+    private fun practice() {
+        service?.close()
+        service = null
+        Session.service = null
+        Session.role = "practice"
+        connectingAsHost = false
+        startActivity(Intent(this, GameActivity::class.java).putExtra("player", -1))
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun connect(device: BluetoothDevice) {
+        ensurePermissions {
+            ensureEnabled {
+                runCatching { adapter?.cancelDiscovery() }
+                connectingAsHost = false
+                launchService(host = false, device = device)
+                status.text = "Conectando a ${deviceLabel(device)}…"
+            }
+        }
+    }
+
+    private fun launchService(host: Boolean, device: BluetoothDevice?) {
+        service?.close()
+        val game = BluetoothGame()
+        game.listener = menuListener
+        service = game
+        Session.service = game
+        Session.role = if (host) "host" else "client"
+        if (host) game.startHost() else device?.let { game.startClient(it) }
+    }
+
+    private fun startGame(player: Int) {
+        Session.role = if (player == 0) "host" else "client"
+        startActivity(Intent(this, GameActivity::class.java).putExtra("player", player))
+    }
+
+    private fun addDevice(device: BluetoothDevice, tag: String) {
+        val address = device.address
+        if (found.containsKey(address)) return
+        found[address] = device
+        val label = deviceLabel(device)
+        devices.addView(Button(this).apply {
+            text = "$label\n$address · $tag"
+            textSize = 14f
+            isAllCaps = false
+            gravity = Gravity.START or Gravity.CENTER_VERTICAL
+            setTextColor(Color.WHITE)
+            backgroundTintList = ColorStateList.valueOf(Color.parseColor("#15202E"))
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, dp(64)).apply { topMargin = dp(8) }
+            setOnClickListener { connect(device) }
+        })
+    }
+
+    private fun deviceLabel(device: BluetoothDevice): String = try {
+        device.name ?: "Sem nome"
+    } catch (error: SecurityException) {
+        "Sem nome"
+    }
+
+    private fun ensurePermissions(action: () -> Unit) {
+        if (hasPermissions()) {
+            action()
+        } else {
+            pendingAction = action
+            requestPermissions(requiredPermissions(), REQUEST_PERMISSIONS)
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun ensureEnabled(action: () -> Unit) {
+        val bluetooth = adapter ?: run {
+            toast("Bluetooth indisponível neste aparelho.")
+            return
+        }
+        if (!bluetooth.isEnabled) {
+            afterEnable = action
+            runCatching {
+                startActivityForResult(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE), REQUEST_ENABLE)
+            }
+        } else {
+            action()
+        }
+    }
+
+    private fun requiredPermissions(): Array<String> =
+        if (Build.VERSION.SDK_INT >= 31) {
+            arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
+        } else {
+            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+
+    private fun hasPermissions(): Boolean = requiredPermissions().all {
+        checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun registerDiscovery() {
+        val filter = IntentFilter().apply {
+            addAction(BluetoothDevice.ACTION_FOUND)
+            addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
+        }
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(discoveryReceiver, filter, Context.RECEIVER_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(discoveryReceiver, filter)
+        }
+        receiverRegistered = true
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != REQUEST_PERMISSIONS) return
+        if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
+            pendingAction?.invoke()
+        } else {
+            status.text = "Permissões de Bluetooth são necessárias para o multiplayer."
+        }
+        pendingAction = null
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        when (requestCode) {
+            REQUEST_ENABLE -> {
+                val action = afterEnable
+                afterEnable = null
+                if (resultCode == RESULT_OK) action?.invoke()
+                else status.text = "Ative o Bluetooth para jogar em dois aparelhos."
+            }
+            REQUEST_DISCOVERABLE -> {
+                if (resultCode == RESULT_CANCELED) {
+                    status.text = "Visibilidade recusada: o outro jogador pode conectar pelo pareamento."
+                }
+            }
+        }
+    }
+
+    private fun toast(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+    }
+
+    private fun text(value: String, size: Float, color: String, bold: Boolean = false): TextView =
+        TextView(this).apply {
+            text = value
+            textSize = size
+            setTextColor(Color.parseColor(color))
+            if (bold) typeface = Typeface.DEFAULT_BOLD
+        }
+
+    private fun button(label: String, color: String, action: () -> Unit): Button =
+        Button(this).apply {
+            text = label
+            textSize = 17f
+            isAllCaps = false
+            setTextColor(Color.WHITE)
+            backgroundTintList = ColorStateList.valueOf(Color.parseColor(color))
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, dp(56)).apply { topMargin = dp(12) }
+            setOnClickListener { action() }
+        }
+
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+
+    companion object {
+        private const val REQUEST_PERMISSIONS = 41
+        private const val REQUEST_ENABLE = 42
+        private const val REQUEST_DISCOVERABLE = 43
+        private const val MATCH_PARENT = LinearLayout.LayoutParams.MATCH_PARENT
+        private const val WRAP_CONTENT = LinearLayout.LayoutParams.WRAP_CONTENT
+    }
+}
