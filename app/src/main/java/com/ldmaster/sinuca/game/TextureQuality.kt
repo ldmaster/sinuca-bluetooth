@@ -10,13 +10,14 @@ enum class TextureQuality(
     val label: String,
     val description: String
 ) {
+    DETAILED_2K("2k", "2K detalhado", "Mapa 2048² com relevo ampliado, visível no celular"),
     LITERAL("literal", "4K literal", "Mapas 4096² reais embutidos no APK"),
     PROCEDURAL("procedural", "4K procedural", "Detalhe calculado no shader, APK leve");
 
     companion object {
         const val PREFS = "sinuca"
         const val KEY = "table_texture_quality"
-        val DEFAULT = LITERAL
+        val DEFAULT = DETAILED_2K
 
         fun fromKey(key: String?): TextureQuality =
             entries.firstOrNull { it.key == key } ?: DEFAULT
