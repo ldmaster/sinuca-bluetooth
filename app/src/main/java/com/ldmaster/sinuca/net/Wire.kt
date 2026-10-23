@@ -40,6 +40,8 @@ object Wire {
                     .put(round4(ball.vx))
                     .put(round4(ball.vz))
                     .put(if (ball.active) 1 else 0)
+                    .put(if (ball.falling) 1 else 0)
+                    .put(round4(ball.fall.toDouble()))
             )
         }
         return JSONObject()
@@ -78,7 +80,9 @@ object Wire {
                     z = item.optDouble(1, 0.0),
                     vx = item.optDouble(2, 0.0),
                     vz = item.optDouble(3, 0.0),
-                    active = item.optInt(4, 0) == 1
+                    active = item.optInt(4, 0) == 1,
+                    falling = item.optInt(5, 0) == 1,
+                    fall = item.optDouble(6, 0.0).toFloat()
                 )
             )
         }

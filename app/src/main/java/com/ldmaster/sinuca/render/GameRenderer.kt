@@ -26,12 +26,17 @@ class GameRenderer(
     @Volatile
     var localPlayer: Int = 0
 
+    @Volatile
+    var cameraMode: Int = 0
+        private set
+
     private var width = 1
     private var height = 1
     private val viewProjection = FloatArray(16)
     private val projection = FloatArray(16)
     private val view = FloatArray(16)
     private val eye = FloatArray(3)
+    private val translation = FloatArray(16)
 
     private var program = 0
     private var lineProgram = 0
@@ -97,16 +102,49 @@ class GameRenderer(
         width = surfaceWidth.coerceAtLeast(1)
         height = surfaceHeight.coerceAtLeast(1)
         GLES30.glViewport(0, 0, width, height)
+        updateCamera()
+    }
+
+    fun cycleCamera() {
+        cameraMode = (cameraMode + 1) % 3
+        updateCamera()
+    }
+
+    private fun updateCamera() {
         val aspect = width.toFloat() / height.toFloat()
-        Matrix.perspectiveM(projection, 0, 46f, aspect, 0.1f, 40f)
-        val eyeZ = if (mirrored) 3.15f else -3.15f
+        val side = if (mirrored) 1f else -1f
+        val fieldOfView: Float
+        val eyeY: Float
+        val eyeZ: Float
+        val lookY: Float
+        when (cameraMode) {
+            1 -> {
+                fieldOfView = 44f
+                eyeY = 3.70f
+                eyeZ = 1.55f * side
+                lookY = 0.72f
+            }
+            2 -> {
+                fieldOfView = 50f
+                eyeY = 1.50f
+                eyeZ = 3.55f * side
+                lookY = 0.82f
+            }
+            else -> {
+                fieldOfView = 46f
+                eyeY = 2.62f
+                eyeZ = 3.15f * side
+                lookY = 0.70f
+            }
+        }
+        Matrix.perspectiveM(projection, 0, fieldOfView, aspect, 0.1f, 40f)
         eye[0] = 0f
-        eye[1] = 2.62f
+        eye[1] = eyeY
         eye[2] = eyeZ
         Matrix.setLookAtM(
             view, 0,
             eye[0], eye[1], eye[2],
-            0f, 0.70f, 0f,
+            0f, lookY, 0f,
             0f, 1f, 0f
         )
         Matrix.multiplyMM(viewProjection, 0, projection, 0, view, 0)
@@ -126,11 +164,26 @@ class GameRenderer(
         drawMesh(tableMesh, viewProjection, IDENTITY, useVertexColor = false, stripe = false, color = WHITE)
 
         val model = FloatArray(16)
+        val mvp = FloatArray(16)
         for (ball in world.balls) {
             if (!ball.active) continue
-            Matrix.setIdentityM(model, 0)
-            Matrix.translateM(model, 0, ball.x.toFloat(), Table.BALL_Y.toFloat(), ball.z.toFloat())
-            val mvp = FloatArray(16)
+            val speed = ball.speed
+            if (!ball.falling && speed > 0.001) {
+                val degrees = Math.toDegrees(speed * dt / Table.BALL_RADIUS).toFloat()
+                Matrix.rotateM(
+                    ball.visualRotation, 0, degrees,
+                    (ball.vz / speed).toFloat(), 0f, (-ball.vx / speed).toFloat()
+                )
+            }
+            val drop = if (ball.falling) 0.24f * ball.fall * ball.fall else 0f
+            Matrix.setIdentityM(translation, 0)
+            Matrix.translateM(
+                translation, 0,
+                ball.x.toFloat(),
+                (Table.BALL_Y - drop).toFloat(),
+                ball.z.toFloat()
+            )
+            Matrix.multiplyMM(model, 0, translation, 0, ball.visualRotation, 0)
             Matrix.multiplyMM(mvp, 0, viewProjection, 0, model, 0)
             val color = ballColor(ball.number)
             drawMesh(
@@ -144,37 +197,43 @@ class GameRenderer(
         drawCue(model)
 
         val cue = world.cueBall()
-        if (cue.active) {
+        val showAim = cue.active && !world.moving && world.winner < 0 && world.canShoot(localPlayer)
+        if (showAim) {
             GLES30.glUseProgram(lineProgram)
             GLES30.glUniformMatrix4fv(uLineMvp, 1, false, viewProjection, 0)
-            GLES30.glUniform4f(uLineColor, 1f, 0.86f, 0.35f, 0.9f)
+            GLES30.glUniform4f(uLineColor, 1f, 0.93f, 0.62f, 0.42f)
             val directionX = cos(world.aimAngle).toFloat()
             val directionZ = sin(world.aimAngle).toFloat()
-            val start = floatArrayOf(
-                cue.x.toFloat() + directionX * (Table.BALL_RADIUS.toFloat() + 0.004f),
-                Table.BALL_Y.toFloat(),
-                cue.z.toFloat() + directionZ * (Table.BALL_RADIUS.toFloat() + 0.004f)
-            )
-            val end = floatArrayOf(
-                start[0] + directionX * 0.78f,
-                start[1],
-                start[2] + directionZ * 0.78f
-            )
-            val buffer = ByteBuffer.allocateDirect(6 * 4)
+            val startDistance = Table.BALL_RADIUS.toFloat() + 0.012f
+            val endDistance = startDistance + 0.55f
+            val points = ArrayList<Float>(32)
+            var distance = startDistance
+            while (distance < endDistance) {
+                val dashEnd = (distance + 0.032f).coerceAtMost(endDistance)
+                points.add(cue.x.toFloat() + directionX * distance)
+                points.add(Table.BALL_Y.toFloat())
+                points.add(cue.z.toFloat() + directionZ * distance)
+                points.add(cue.x.toFloat() + directionX * dashEnd)
+                points.add(Table.BALL_Y.toFloat())
+                points.add(cue.z.toFloat() + directionZ * dashEnd)
+                distance = dashEnd + 0.022f
+            }
+            val vertexData = points.toFloatArray()
+            val buffer = ByteBuffer.allocateDirect(vertexData.size * 4)
                 .order(ByteOrder.nativeOrder())
                 .asFloatBuffer()
-            buffer.put(start).put(end).position(0)
+            buffer.put(vertexData).position(0)
             GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, lineBuffer)
             GLES30.glBufferData(
                 GLES30.GL_ARRAY_BUFFER,
-                6 * 4,
+                vertexData.size * 4,
                 buffer,
                 GLES30.GL_DYNAMIC_DRAW
             )
             GLES30.glEnableVertexAttribArray(0)
             GLES30.glVertexAttribPointer(0, 3, GLES30.GL_FLOAT, false, 0, 0)
-            GLES30.glLineWidth(3f)
-            GLES30.glDrawArrays(GLES30.GL_LINES, 0, 2)
+            GLES30.glLineWidth(2f)
+            GLES30.glDrawArrays(GLES30.GL_LINES, 0, vertexData.size / 3)
             GLES30.glDisableVertexAttribArray(0)
             GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, 0)
         }
@@ -220,35 +279,8 @@ class GameRenderer(
         mesh.draw()
     }
 
-    fun aimAt(screenX: Float, screenY: Float) {
-        val point = screenToTable(screenX, screenY) ?: return
-        synchronized(world) { world.aimAt(point[0].toDouble(), point[1].toDouble()) }
-    }
-
-    private fun screenToTable(screenX: Float, screenY: Float): FloatArray? {
-        val inverse = FloatArray(16)
-        if (!Matrix.invertM(inverse, 0, viewProjection, 0)) return null
-        val ndcX = 2f * screenX / width - 1f
-        val ndcY = 1f - 2f * screenY / height
-        val near = unproject(inverse, ndcX, ndcY, -1f)
-        val far = unproject(inverse, ndcX, ndcY, 1f)
-        val denominator = far[1] - near[1]
-        if (abs(denominator) < 1e-6f) return null
-        val t = (Table.BALL_Y.toFloat() - near[1]) / denominator
-        if (t < 0f || t > 1.5f) return null
-        return floatArrayOf(
-            near[0] + t * (far[0] - near[0]),
-            near[2] + t * (far[2] - near[2])
-        )
-    }
-
-    private fun unproject(inverse: FloatArray, x: Float, y: Float, z: Float): FloatArray {
-        val vx = inverse[0] * x + inverse[4] * y + inverse[8] * z + inverse[12]
-        val vy = inverse[1] * x + inverse[5] * y + inverse[9] * z + inverse[13]
-        val vz = inverse[2] * x + inverse[6] * y + inverse[10] * z + inverse[14]
-        val vw = inverse[3] * x + inverse[7] * y + inverse[11] * z + inverse[15]
-        val w = if (abs(vw) < 1e-9f) 1f else vw
-        return floatArrayOf(vx / w, vy / w, vz / w)
+    fun rotateAim(deltaPixels: Float) {
+        synchronized(world) { world.aimAngle += deltaPixels * AIM_SENSITIVITY }
     }
 
     private fun ballColor(number: Int): FloatArray = when (number) {
@@ -438,6 +470,7 @@ class GameRenderer(
 
     companion object {
         private const val TAG = "GameRenderer"
+        private const val AIM_SENSITIVITY = 0.0018f
 
         private val IDENTITY = floatArrayOf(
             1f, 0f, 0f, 0f,

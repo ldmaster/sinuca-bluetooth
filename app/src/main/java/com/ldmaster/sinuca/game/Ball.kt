@@ -10,6 +10,18 @@ class Ball(
     var vz: Double = 0.0,
     var active: Boolean = true
 ) {
+    var falling: Boolean = false
+    var fall: Float = 0f
+    var dropX: Double = 0.0
+    var dropZ: Double = 0.0
+
+    val visualRotation: FloatArray = floatArrayOf(
+        1f, 0f, 0f, 0f,
+        0f, 1f, 0f, 0f,
+        0f, 0f, 1f, 0f,
+        0f, 0f, 0f, 1f
+    )
+
     val speed: Double
         get() = hypot(vx, vz)
 

@@ -100,12 +100,15 @@ class GameActivity : Activity() {
             this,
             { hudState() },
             object : HudView.Actions {
-                override fun onAim(x: Float, y: Float) {
-                    surface.queueEvent { renderer.aimAt(x, y) }
+                override fun onAimDelta(deltaPixels: Float) {
+                    surface.queueEvent { renderer.rotateAim(deltaPixels) }
                 }
 
                 override fun onShoot() = requestShot()
                 override fun onExit() = closeAndFinish()
+                override fun onCamera() {
+                    surface.queueEvent { renderer.cycleCamera() }
+                }
             }
         )
 
@@ -160,11 +163,14 @@ class GameActivity : Activity() {
             practice = practice,
             remaining0 = snapshot.remaining0,
             remaining1 = snapshot.remaining1,
+            potted0 = snapshot.potted0,
+            potted1 = snapshot.potted1,
             winner = snapshot.winner,
             moving = snapshot.moving,
             message = snapshot.message,
             started = started,
-            canShoot = started && world.canShoot(localPlayer)
+            canShoot = started && world.canShoot(localPlayer),
+            cameraMode = renderer.cameraMode
         )
     }
 

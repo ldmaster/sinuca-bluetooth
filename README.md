@@ -14,15 +14,22 @@ Kotlin + OpenGL ES 3.0, sem engine externa.
 - Mesa 3D com seis caçapas, bola branca, 15 coloridas e taco animado.
 - Física própria de sinuca: atrito de rolamento, colisões elásticas entre bolas,
   quiques nas tabelas e captura nas caçapas, com passo fixo e sub-passos.
+- Rolamento visual das bolas (rotação proporcional à velocidade) e queda
+  gradual dentro da caçapa antes de sair da mesa.
 - Regras de 8-ball simplificadas: grupos fixos (1–7 x 9–15), continuidade de vez
   ao encaçapar a própria bola, falta da branca, vitória/derrota pela 8.
+- Bolas encaçapadas de cada jogador aparecem no topo da tela.
+- Controle de mira por arrasto relativo: arraste em qualquer ponto da mesa e a
+  direção gira suavemente, sem saltar para o dedo.
+- Força em barra vertical no lado direito, com arrasto para cima/baixo.
+- Três perspectivas de câmera (3/4, alta e baixa) no botão **VISÃO**.
 - Multiplayer host-autoritativo: o host simula e envia snapshots (~16 Hz); o
   cliente prevê localmente e recebe correções. Apenas uma conexão é aceita.
 - Fluxo Bluetooth: criar partida (visível por 5 min) ou entrar em partida
   (aparelhos pareados + descoberta).
 - Modo **Treino local** para jogar sozinho e testar a física sem Bluetooth.
-- HUD com placar, indicador de vez, mira por toque, barra de força e botão
-  ATIRAR.
+- HUD com placar, bolas encaçapadas, indicador de vez, mira por toque, barra de
+  força vertical e botão ATIRAR.
 
 ## Requisitos
 
@@ -49,9 +56,11 @@ APK: `app/build/outputs/apk/debug/app-debug.apk` (pacote `com.ldmaster.sinuca`).
 
 Controles (paisagem):
 
-- **Mira:** arraste o dedo sobre a mesa.
-- **Força:** arraste na barra inferior (0–100%).
+- **Mira:** arraste o dedo sobre a mesa. O movimento é relativo: continue
+  arrastando em qualquer lugar para girar mais, sem saltos.
+- **Força:** arraste a barra vertical à direita (para cima aumenta).
 - **Tacada:** toque em **ATIRAR**.
+- **Perspectiva:** **VISÃO** alterna entre 3/4, visão alta e visão baixa.
 - **Sair:** botão **SAIR** no topo.
 
 ## Regras adotadas
@@ -110,8 +119,9 @@ color), sem depender de Filament/Sceneform.
 ./gradlew :app:testDebugUnitTest
 ```
 
-Cobrem colisão frontal, quique na tabela, queda em caçapa, atrito, regras de vez,
-8-ball e ida/volta do protocolo.
+Cobrem colisão frontal, quique na tabela, queda em caçapa (incluindo a animação
+de queda), atrito, regras de vez, 8-ball, sincronização host/cliente e ida/volta
+do protocolo.
 
 ## Limitações conhecidas
 

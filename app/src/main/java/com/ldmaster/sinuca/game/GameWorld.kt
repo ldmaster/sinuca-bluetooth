@@ -1,6 +1,5 @@
 package com.ldmaster.sinuca.game
 
-import kotlin.math.atan2
 import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.hypot
@@ -13,7 +12,9 @@ data class BallSnapshot(
     val z: Double,
     val vx: Double,
     val vz: Double,
-    val active: Boolean
+    val active: Boolean,
+    val falling: Boolean = false,
+    val fall: Float = 0f
 )
 
 data class WorldSnapshot(
@@ -24,7 +25,17 @@ data class WorldSnapshot(
     val balls: List<BallSnapshot>,
     val remaining0: Int,
     val remaining1: Int
-)
+) {
+    val potted0: List<Int>
+        get() = balls
+            .filter { it.number in 1..7 && (!it.active || it.falling) }
+            .map { it.number }
+
+    val potted1: List<Int>
+        get() = balls
+            .filter { it.number in 9..15 && (!it.active || it.falling) }
+            .map { it.number }
+}
 
 class GameWorld(val practice: Boolean = false) {
 
@@ -58,6 +69,8 @@ class GameWorld(val practice: Boolean = false) {
         cue.x = Table.CUE_SPOT[0]
         cue.z = Table.CUE_SPOT[1]
         cue.active = true
+        cue.falling = false
+        cue.fall = 0f
         cue.stop()
 
         val rows = listOf(
@@ -79,6 +92,8 @@ class GameWorld(val practice: Boolean = false) {
                 ball.x = x
                 ball.z = z
                 ball.active = true
+                ball.falling = false
+                ball.fall = 0f
                 ball.stop()
             }
         }
@@ -107,13 +122,14 @@ class GameWorld(val practice: Boolean = false) {
         if (!moving) return
         val frame = dt.coerceIn(0.0, 0.05)
         if (frame <= 0.0) return
-        val topSpeed = balls.filter { it.active }.maxOfOrNull { it.speed } ?: 0.0
+        advanceFalls(frame)
+        val topSpeed = balls.filter { it.active && !it.falling }.maxOfOrNull { it.speed } ?: 0.0
         val substeps = ceil(topSpeed * frame / (Table.BALL_RADIUS * 0.35))
             .toInt()
             .coerceIn(1, 12)
         val h = frame / substeps
         repeat(substeps) { integrate(h) }
-        if (balls.all { !it.active || it.speed < STOP_SPEED }) {
+        if (balls.all { (!it.active || it.speed < STOP_SPEED) && !it.falling }) {
             for (ball in balls) if (ball.speed < STOP_SPEED) ball.stop()
             moving = false
             resolvePots(pendingPotted.toList())
@@ -121,9 +137,23 @@ class GameWorld(val practice: Boolean = false) {
         }
     }
 
+    private fun advanceFalls(dt: Double) {
+        for (ball in balls) {
+            if (!ball.falling) continue
+            ball.fall = (ball.fall + (dt / FALL_DURATION).toFloat()).coerceAtMost(1f)
+            val pull = (dt * 12.0).coerceAtMost(1.0)
+            ball.x += (ball.dropX - ball.x) * pull
+            ball.z += (ball.dropZ - ball.z) * pull
+            if (ball.fall >= 1f) {
+                ball.falling = false
+                ball.active = false
+            }
+        }
+    }
+
     private fun integrate(h: Double) {
         for (ball in balls) {
-            if (!ball.active) continue
+            if (!ball.active || ball.falling) continue
             val speed = ball.speed
             if (speed > 0.0) {
                 val next = max(0.0, speed - ROLL_DECELERATION * h)
@@ -158,7 +188,10 @@ class GameWorld(val practice: Boolean = false) {
     private fun pocketed(ball: Ball): Boolean {
         for (pocket in Table.POCKETS) {
             if (hypot(ball.x - pocket[0], ball.z - pocket[1]) < Table.POCKET_RADIUS) {
-                ball.active = false
+                ball.falling = true
+                ball.fall = 0f
+                ball.dropX = pocket[0]
+                ball.dropZ = pocket[1]
                 ball.stop()
                 pendingPotted.add(ball.number)
                 return true
@@ -171,10 +204,10 @@ class GameWorld(val practice: Boolean = false) {
         val diameter = Table.BALL_RADIUS * 2.0
         for (i in balls.indices) {
             val a = balls[i]
-            if (!a.active) continue
+            if (!a.active || a.falling) continue
             for (j in i + 1 until balls.size) {
                 val b = balls[j]
-                if (!b.active) continue
+                if (!b.active || b.falling) continue
                 val dx = b.x - a.x
                 val dz = b.z - a.z
                 val distanceSquared = dx * dx + dz * dz
@@ -252,6 +285,8 @@ class GameWorld(val practice: Boolean = false) {
         cue.x = spotX
         cue.z = spotZ
         cue.active = true
+        cue.falling = false
+        cue.fall = 0f
         cue.stop()
     }
 
@@ -272,7 +307,16 @@ class GameWorld(val practice: Boolean = false) {
             moving = moving,
             message = message,
             balls = balls.map {
-                BallSnapshot(it.number, it.x, it.z, it.vx, it.vz, it.active)
+                BallSnapshot(
+                    number = it.number,
+                    x = it.x,
+                    z = it.z,
+                    vx = it.vx,
+                    vz = it.vz,
+                    active = it.active,
+                    falling = it.falling,
+                    fall = it.fall
+                )
             },
             remaining0 = remainingFor(0),
             remaining1 = remainingFor(1)
@@ -287,6 +331,10 @@ class GameWorld(val practice: Boolean = false) {
             ball.vx = state.vx
             ball.vz = state.vz
             ball.active = state.active
+            ball.falling = state.falling
+            ball.fall = state.fall
+            ball.dropX = state.x
+            ball.dropZ = state.z
         }
         turn = snapshot.turn
         winner = snapshot.winner
@@ -294,15 +342,11 @@ class GameWorld(val practice: Boolean = false) {
         message = snapshot.message
     }
 
-    fun aimAt(targetX: Double, targetZ: Double) {
-        val cue = balls[0]
-        aimAngle = atan2(targetZ - cue.z, targetX - cue.x)
-    }
-
     companion object {
         private const val ROLL_DECELERATION = 0.32
         private const val CUSHION_RESTITUTION = 0.72
         private const val BALL_RESTITUTION = 0.96
         private const val STOP_SPEED = 0.012
+        private const val FALL_DURATION = 0.45
     }
 }
