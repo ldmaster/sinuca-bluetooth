@@ -214,6 +214,7 @@ class GameActivity : Activity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        renderer.release()
         handler.removeCallbacks(sync)
         if (!closed) {
             Session.service?.let {

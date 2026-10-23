@@ -6,3 +6,7 @@ local.properties
 .idea/
 .DS_Store
 var/
+
+# signing material
+keystore.properties
+.signing/

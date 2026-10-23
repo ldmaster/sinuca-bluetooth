@@ -171,6 +171,7 @@ class GameWorld(val practice: Boolean = false) {
         for (ball in balls) {
             if (!ball.active || ball.falling) continue
             val speed = ball.speed
+            if (speed < 1e-9) continue
             if (speed > 0.0) {
                 val decel = ROLL_DECELERATION +
                     LINEAR_DRAG * speed +
@@ -262,9 +263,11 @@ class GameWorld(val practice: Boolean = false) {
         for (i in balls.indices) {
             val a = balls[i]
             if (!a.active || a.falling) continue
+            val aStatic = a.speed < 1e-9
             for (j in i + 1 until balls.size) {
                 val b = balls[j]
                 if (!b.active || b.falling) continue
+                if (aStatic && b.speed < 1e-9) continue
                 val dx = b.x - a.x
                 val dz = b.z - a.z
                 val distanceSquared = dx * dx + dz * dz

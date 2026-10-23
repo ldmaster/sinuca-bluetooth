@@ -16,6 +16,7 @@ import com.ldmaster.sinuca.game.Ball
 import com.ldmaster.sinuca.game.Contact
 import com.ldmaster.sinuca.game.GameWorld
 import com.ldmaster.sinuca.game.Table
+import com.ldmaster.sinuca.game.TrajectoryPredictor
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import javax.microedition.khronos.egl.EGLConfig
@@ -59,8 +60,7 @@ class GameRenderer(
     private val eye = FloatArray(3)
     private val translation = FloatArray(16)
     private val ballTextures = IntArray(16)
-    private var cuePath = FloatArray(0)
-    private var targetPath = FloatArray(0)
+    private val predictor = TrajectoryPredictor()
     private var lastPredictionKey = Long.MIN_VALUE
 
     private var program = 0
@@ -318,13 +318,31 @@ class GameRenderer(
         val key = predictionKey()
         if (key != lastPredictionKey) {
             lastPredictionKey = key
-            simulatePrediction()
+            var snapshot: com.ldmaster.sinuca.game.WorldSnapshot
+            var angle: Double
+            synchronized(world) {
+                snapshot = world.snapshot()
+                angle = world.aimAngle
+            }
+            predictor.request(
+                key,
+                snapshot,
+                angle,
+                shotPower.toDouble(),
+                strikeX.toDouble(),
+                strikeY.toDouble()
+            )
         }
-        if (cuePath.isNotEmpty()) {
-            drawLineVertices(cuePath, 1f, 1f, 1f, 0.45f, 2f, GLES30.GL_LINE_STRIP)
+        val prediction = predictor.latest ?: return
+        if (prediction.cuePath.isNotEmpty()) {
+            drawLineVertices(prediction.cuePath, 1f, 1f, 1f, 0.45f, 2f, GLES30.GL_LINE_STRIP)
         }
-        if (targetPath.isNotEmpty()) {
-            drawLineVertices(targetPath, 0.45f, 0.95f, 0.85f, 0.70f, 2.5f, GLES30.GL_LINE_STRIP)
+        if (prediction.targetPath.isNotEmpty()) {
+            drawLineVertices(
+                prediction.targetPath,
+                0.45f, 0.95f, 0.85f, 0.70f,
+                2.5f, GLES30.GL_LINE_STRIP
+            )
         }
     }
 
@@ -340,52 +358,6 @@ class GameRenderer(
             key = key * 31 + (if (ball.active) 1 else 0)
         }
         return key
-    }
-
-    private fun simulatePrediction() {
-        val snapshot = synchronized(world) { world.snapshot() }
-        val simulation = GameWorld()
-        simulation.applySnapshot(snapshot)
-        val started = simulation.shoot(
-            world.aimAngle,
-            shotPower.toDouble(),
-            strikeX.toDouble(),
-            strikeY.toDouble()
-        )
-        if (!started) {
-            cuePath = FloatArray(0)
-            targetPath = FloatArray(0)
-            return
-        }
-        val cue = simulation.balls[0]
-        var targetBall: Ball? = null
-        val cuePoints = ArrayList<Float>(160)
-        val targetPoints = ArrayList<Float>(160)
-        addPathPoint(cuePoints, cue)
-        var steps = 0
-        while (simulation.moving && steps < 300) {
-            simulation.step(1.0 / 60.0)
-            if (targetBall == null) {
-                targetBall = simulation.balls.firstOrNull {
-                    it.number != 0 && it.active && it.speed > 0.02
-                }
-            }
-            if (steps % 2 == 0) {
-                if (cue.active || cue.falling) addPathPoint(cuePoints, cue)
-                targetBall?.let {
-                    if (it.active || it.falling) addPathPoint(targetPoints, it)
-                }
-            }
-            steps++
-        }
-        cuePath = cuePoints.toFloatArray()
-        targetPath = targetPoints.toFloatArray()
-    }
-
-    private fun addPathPoint(points: ArrayList<Float>, ball: Ball) {
-        points.add(ball.x.toFloat())
-        points.add(Table.BALL_Y.toFloat())
-        points.add(ball.z.toFloat())
     }
 
     private fun drawLineVertices(
@@ -470,6 +442,10 @@ class GameRenderer(
 
     fun rotateAim(deltaPixels: Float) {
         synchronized(world) { world.aimAngle += deltaPixels * AIM_SENSITIVITY }
+    }
+
+    fun release() {
+        predictor.release()
     }
 
     fun setShotParams(power: Float, strikeX: Float, strikeY: Float) {

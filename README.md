@@ -46,7 +46,8 @@ Vistas extras: [100% de cima, com as caçapas](docs/screenshot-top.png) ·
   simulada coincide com a prevista.
 - Trajetória completa opcional: simula a tacada com a força, ângulo e efeito
   atuais (incluindo tabelas e caçapas) e desenha o caminho da branca e da
-  primeira bola atingida.
+  primeira bola atingida. A simulação roda em **thread própria**, com física
+  reutilizada e pedidos coalescidos: arrastar a mira não bloqueia a renderização.
 - Mira por arrasto relativo, sem salto para onde o dedo tocou.
 - Barra de força vertical discreta, botão de tacada pequeno e HUD sem painéis:
   bolas encaçapadas, vez, ícones de câmera/trajetória/sair e efeito ficam nos
@@ -73,7 +74,24 @@ Vistas extras: [100% de cima, com as caçapas](docs/screenshot-top.png) ·
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-APK: `app/build/outputs/apk/debug/app-debug.apk` (pacote `com.ldmaster.sinuca`).
+APK de teste: `app/build/outputs/apk/debug/app-debug.apk` (pacote
+`com.ldmaster.sinuca`). O CI publica um **release assinado**; para gerar um
+release assinado localmente, copie `keystore.properties.example` para
+`keystore.properties` (arquivo ignorado pelo git) ou exporte
+`SINUCA_KEYSTORE`, `SINUCA_KEYSTORE_PASSWORD`, `SINUCA_KEY_ALIAS` e
+`SINUCA_KEY_PASSWORD`:
+
+```bash
+./gradlew :app:assembleRelease
+```
+
+O CI usa os secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`,
+`ANDROID_KEY_ALIAS` e `ANDROID_KEY_PASSWORD` e publica o APK assinado em cada
+tag `v*`. A chave é estável, então as próximas versões atualizam por cima.
+
+> **Primeira atualização assinada:** a 1.5.0 foi publicada com assinatura de
+> debug. Ao instalar a 1.6.0 (assinada com a chave de release) pela primeira
+> vez, desinstale a 1.5.0. Da 1.6.0 em diante, o Android atualiza normalmente.
 
 ## Como jogar
 
@@ -114,7 +132,8 @@ app/src/main/java/com/ldmaster/sinuca/
 ├── game/
 │   ├── Table.kt             dimensões, caçapas e segmentos de almofada (m)
 │   ├── Ball.kt              estado, efeito e matriz visual de rolamento
-│   └── GameWorld.kt         física, regras, previsão e snapshots
+│   ├── GameWorld.kt         física, regras e snapshots
+│   └── TrajectoryPredictor.kt  previsão em thread própria, sem travar a GL
 ├── net/
 │   ├── BluetoothGame.kt     RFCOMM: accept, connect, leitura/escrita
 │   ├── Wire.kt              protocolo JSON por linha
