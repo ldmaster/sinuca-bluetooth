@@ -16,19 +16,21 @@ Vistas extras: [de cima, com as redes](docs/screenshot-top.png) ·
 ## O que está implementado
 
 - Mesa de alta definição com caçapas reais: furos na mesa e no apron, poços
-  cilíndricos, redes no fundo, aros metálicos, almofadas e trilhos com chanfro.
+  cilíndricos, redes no fundo, aros escuros, almofadas e trilhos largos com
+  chanfro. Proporção 2:1 e trilhos grossos, seguindo a mesa de referência.
 - Bolas de 48×32 segmentos com textura de número/listra: cores definidas, bolas
   lisas e listradas, 8 e branca.
 - Física própria: atrito, colisões, quiques, queda gradual na caçapa e
-  **quinas de caçapa**: bola muito rápida e descentralizada pode quicar na boca
-  em vez de cair.
+  **quinas de caçapa**. A captura é calibrada ao diâmetro visível do buraco;
+  só bolas realmente rápidas (acima de 4 m/s) raspando a borda quicam na boca.
 - **Efeito (english)**: selecione o ponto de acerto na bola branca. Parte baixa
   faz a branca voltar (draw), parte alta segue em frente (follow), laterais
   curvam a trajetória e alteram o quique nas tabelas.
-- **Trajetória completa** opcional: simula a tacada com a força, ângulo e efeito
-  atuais e desenha o caminho da branca e da primeira bola atingida.
 - Indicador em tempo real da bola na mira: anel fantasma no ponto de contato,
-  destaque na bola-alvo e seta com a direção que ela vai tomar.
+  destaque na bola-alvo e seta com a direção que ela vai tomar. A seta usa a
+  normal do contato real (bola fantasma), então cortar a quina muda a direção.
+- Trajetória completa opcional: simula a tacada com a força, ângulo e efeito
+  atuais e desenha o caminho da branca e da primeira bola atingida.
 - Mira por arrasto relativo, sem salto para onde o dedo tocou.
 - Barra de força vertical discreta, botão de tacada pequeno e HUD sem painéis:
   bolas encaçapadas, vez, ícones de câmera/trajetória/sair e efeito ficam nos
@@ -117,8 +119,8 @@ O protocolo usa uma linha JSON por mensagem (`hello`, `start`, `state`, `shot`,
 
 Os planos ficam em `assets-plans/table.json` e `assets-plans/cue.json` e usam apenas
 operações tipadas do harness (sem scripts `bpy`). A mesa é construída com
-booleanos (furos da mesa e do apron), poços, redes, aros toroidais, almofadas e
-bevel. Para regerar:
+booleanos (furos da mesa e do apron), poços, redes, aros escuros, almofadas,
+trilhos largos com chanfro e proporção 2:1. Para regerar:
 
 ```bash
 forge apply assets-plans/table.json --profile prop --brief "high detail billiards table with real pockets and nets"
@@ -139,8 +141,9 @@ texturas OpenGL, sem depender de Filament/Sceneform.
 ```
 
 Cobrem colisão frontal, quique na tabela, queda em caçapa (incluindo a animação),
-quinas de caçapa, draw/follow/english, atrito, regras de vez, 8-ball,
-sincronização host/cliente e ida/volta do protocolo (26 testes).
+quinas de caçapa, geometria de mira (centro x quina), draw/follow/english,
+atrito, regras de vez, 8-ball, sincronização host/cliente e ida/volta do
+protocolo (30 testes).
 
 ## Limitações conhecidas
 

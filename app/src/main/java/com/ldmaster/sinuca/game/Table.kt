@@ -6,7 +6,8 @@ object Table {
     const val BALL_RADIUS = 0.028575
     const val CLOTH_TOP = 0.75
     const val BALL_Y = CLOTH_TOP + BALL_RADIUS
-    const val POCKET_RADIUS = 0.062
+    const val POCKET_RADIUS = 0.052
+    const val POCKET_MOUTH = 0.074
 
     val POCKETS: List<DoubleArray> = listOf(
         doubleArrayOf(-1.27, -0.635),

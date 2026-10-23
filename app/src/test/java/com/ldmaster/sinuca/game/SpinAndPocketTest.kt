@@ -65,9 +65,9 @@ class SpinAndPocketTest {
         val world = GameWorld()
         val ball = world.balls[1]
         ball.active = true
-        ball.x = 1.27 + 0.05
+        ball.x = 1.27 + 0.062
         ball.z = 0.635
-        ball.vx = -3.0
+        ball.vx = -4.5
         ball.vz = 0.0
         val potted = world.pocketed(ball)
         assertFalse(potted)
@@ -82,7 +82,7 @@ class SpinAndPocketTest {
         ball.active = true
         ball.x = 1.27 + 0.01
         ball.z = 0.635
-        ball.vx = -3.0
+        ball.vx = -4.5
         assertTrue(world.pocketed(ball))
         assertTrue(ball.falling)
     }

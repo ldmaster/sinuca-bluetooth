@@ -11,7 +11,9 @@ import android.opengl.GLSurfaceView
 import android.opengl.GLUtils
 import android.opengl.Matrix
 import android.util.Log
+import com.ldmaster.sinuca.game.Aim
 import com.ldmaster.sinuca.game.Ball
+import com.ldmaster.sinuca.game.Contact
 import com.ldmaster.sinuca.game.GameWorld
 import com.ldmaster.sinuca.game.Table
 import java.nio.ByteBuffer
@@ -232,13 +234,14 @@ class GameRenderer(
             val directionX = cos(world.aimAngle).toFloat()
             val directionZ = sin(world.aimAngle).toFloat()
             drawAimDashes(cue, directionX, directionZ)
-            val target = firstBallInSight(cue, directionX, directionZ)
-            if (target != null) {
-                drawSightIndicator(cue, target)
-                if (showTrajectory) drawPrediction(target)
-            } else if (showTrajectory) {
-                drawPrediction(null)
-            }
+            val contact = Aim.firstContact(
+                cue,
+                world.balls,
+                directionX.toDouble(),
+                directionZ.toDouble()
+            )
+            if (contact != null) drawSightIndicator(contact)
+            if (showTrajectory) drawPrediction()
         }
         GLES30.glUseProgram(0)
     }
@@ -261,45 +264,16 @@ class GameRenderer(
         drawLineVertices(points.toFloatArray(), 1f, 0.93f, 0.62f, 0.42f, 2f, GLES30.GL_LINES)
     }
 
-    private fun firstBallInSight(cue: Ball, directionX: Float, directionZ: Float): Ball? {
-        var best: Ball? = null
-        var bestDistance = Double.MAX_VALUE
-        val diameter = Table.BALL_RADIUS * 2.0
-        val direction = doubleArrayOf(directionX.toDouble(), directionZ.toDouble())
-        for (ball in world.balls) {
-            if (ball.number == 0 || !ball.active || ball.falling) continue
-            val tx = ball.x - cue.x
-            val tz = ball.z - cue.z
-            val along = tx * direction[0] + tz * direction[1]
-            if (along <= 0.0) continue
-            val cross = tx * direction[1] - tz * direction[0]
-            if (kotlin.math.abs(cross) >= diameter) continue
-            val hit = along - kotlin.math.sqrt(diameter * diameter - cross * cross)
-            if (hit >= 0.0 && hit < bestDistance) {
-                bestDistance = hit
-                best = ball
-            }
-        }
-        return best
-    }
-
-    private fun drawSightIndicator(cue: Ball, target: Ball) {
-        val dx = target.x - cue.x
-        val dz = target.z - cue.z
-        val distance = kotlin.math.hypot(dx, dz)
-        if (distance < 1e-9) return
-        val normalX = dx / distance
-        val normalZ = dz / distance
-        val ghostX = target.x - normalX * Table.BALL_RADIUS * 2.0
-        val ghostZ = target.z - normalZ * Table.BALL_RADIUS * 2.0
-
+    private fun drawSightIndicator(contact: Contact) {
+        val target = contact.target
         val points = ArrayList<Float>(160)
-        addCircle(points, ghostX, ghostZ, Table.BALL_RADIUS)
+        addCircle(points, contact.ghostX, contact.ghostZ, Table.BALL_RADIUS)
         addCircle(points, target.x, target.z, Table.BALL_RADIUS * 1.12)
-        val startX = target.x + normalX * (Table.BALL_RADIUS + 0.008)
-        val startZ = target.z + normalZ * (Table.BALL_RADIUS + 0.008)
-        val endX = target.x + normalX * (Table.BALL_RADIUS + 0.30)
-        val endZ = target.z + normalZ * (Table.BALL_RADIUS + 0.30)
+
+        val startX = target.x + contact.normalX * (Table.BALL_RADIUS + 0.008)
+        val startZ = target.z + contact.normalZ * (Table.BALL_RADIUS + 0.008)
+        val endX = target.x + contact.normalX * (Table.BALL_RADIUS + 0.30)
+        val endZ = target.z + contact.normalZ * (Table.BALL_RADIUS + 0.30)
         points.add(startX.toFloat())
         points.add(Table.BALL_Y.toFloat())
         points.add(startZ.toFloat())
@@ -329,11 +303,11 @@ class GameRenderer(
         }
     }
 
-    private fun drawPrediction(target: Ball?) {
+    private fun drawPrediction() {
         val key = predictionKey()
         if (key != lastPredictionKey) {
             lastPredictionKey = key
-            simulatePrediction(target)
+            simulatePrediction()
         }
         if (cuePath.isNotEmpty()) {
             drawLineVertices(cuePath, 1f, 1f, 1f, 0.28f, 2f, GLES30.GL_LINE_STRIP)
@@ -357,11 +331,10 @@ class GameRenderer(
         return key
     }
 
-    private fun simulatePrediction(target: Ball?) {
+    private fun simulatePrediction() {
         val snapshot = synchronized(world) { world.snapshot() }
         val simulation = GameWorld()
         simulation.applySnapshot(snapshot)
-        val targetNumber = target?.number
         val started = simulation.shoot(
             world.aimAngle,
             shotPower.toDouble(),
@@ -374,20 +347,22 @@ class GameRenderer(
             return
         }
         val cue = simulation.balls[0]
-        val targetBall = targetNumber?.let { simulation.balls[it] }
+        var targetBall: Ball? = null
         val cuePoints = ArrayList<Float>(160)
         val targetPoints = ArrayList<Float>(160)
         addPathPoint(cuePoints, cue)
-        if (targetBall != null && (targetBall.active || targetBall.falling)) {
-            addPathPoint(targetPoints, targetBall)
-        }
         var steps = 0
         while (simulation.moving && steps < 300) {
             simulation.step(1.0 / 60.0)
+            if (targetBall == null) {
+                targetBall = simulation.balls.firstOrNull {
+                    it.number != 0 && it.active && it.speed > 0.02
+                }
+            }
             if (steps % 2 == 0) {
                 if (cue.active || cue.falling) addPathPoint(cuePoints, cue)
-                if (targetBall != null && (targetBall.active || targetBall.falling)) {
-                    addPathPoint(targetPoints, targetBall)
+                targetBall?.let {
+                    if (it.active || it.falling) addPathPoint(targetPoints, it)
                 }
             }
             steps++

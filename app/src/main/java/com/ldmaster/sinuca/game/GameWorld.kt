@@ -224,31 +224,32 @@ class GameWorld(val practice: Boolean = false) {
             val dx = ball.x - pocket[0]
             val dz = ball.z - pocket[1]
             val distance = hypot(dx, dz)
-            if (distance >= Table.POCKET_RADIUS || distance < 1e-9) continue
+            if (distance < 1e-9 || distance >= Table.POCKET_MOUTH) continue
 
-            val speed = ball.speed
-            if (speed > FAST_POCKET_SPEED && distance > Table.POCKET_RADIUS * 0.55) {
-                val nx = dx / distance
-                val nz = dz / distance
-                val normalSpeed = ball.vx * nx + ball.vz * nz
-                if (normalSpeed < 0.0) {
-                    ball.vx -= (1.0 + JAW_RESTITUTION) * normalSpeed * nx
-                    ball.vz -= (1.0 + JAW_RESTITUTION) * normalSpeed * nz
-                }
-                ball.vx *= 0.82
-                ball.vz *= 0.82
-                ball.x = pocket[0] + nx * (Table.POCKET_RADIUS + 0.0015)
-                ball.z = pocket[1] + nz * (Table.POCKET_RADIUS + 0.0015)
-                return false
+            if (distance < Table.POCKET_RADIUS) {
+                ball.falling = true
+                ball.fall = 0f
+                ball.dropX = pocket[0]
+                ball.dropZ = pocket[1]
+                ball.stop()
+                pendingPotted.add(ball.number)
+                return true
             }
 
-            ball.falling = true
-            ball.fall = 0f
-            ball.dropX = pocket[0]
-            ball.dropZ = pocket[1]
-            ball.stop()
-            pendingPotted.add(ball.number)
-            return true
+            if (ball.speed <= FAST_POCKET_SPEED) continue
+
+            val nx = dx / distance
+            val nz = dz / distance
+            val normalSpeed = ball.vx * nx + ball.vz * nz
+            if (normalSpeed >= 0.0) continue
+
+            ball.vx -= (1.0 + JAW_RESTITUTION) * normalSpeed * nx
+            ball.vz -= (1.0 + JAW_RESTITUTION) * normalSpeed * nz
+            ball.vx *= 0.86
+            ball.vz *= 0.86
+            ball.x = pocket[0] + nx * (Table.POCKET_MOUTH + 0.0015)
+            ball.z = pocket[1] + nz * (Table.POCKET_MOUTH + 0.0015)
+            return false
         }
         return false
     }
@@ -414,8 +415,8 @@ class GameWorld(val practice: Boolean = false) {
         private const val BALL_RESTITUTION = 0.96
         private const val STOP_SPEED = 0.012
         private const val FALL_DURATION = 0.45
-        private const val FAST_POCKET_SPEED = 1.6
-        private const val JAW_RESTITUTION = 0.55
+        private const val FAST_POCKET_SPEED = 4.0
+        private const val JAW_RESTITUTION = 0.5
         private const val SIDE_SPIN_CURVE = 0.38
         private const val CUSHION_SPIN = 0.38
         private const val DRAW_FOLLOW_IMPULSE = 1.05
