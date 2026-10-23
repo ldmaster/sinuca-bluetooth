@@ -16,8 +16,8 @@ OUTER_X = 1.465
 OUTER_Z = 0.830
 INNER_X = 1.270
 INNER_Z = 0.635
-TOP = 0.705
-BOTTOM = 0.560
+TOP = 0.660
+BOTTOM = 0.540
 
 
 def apply_material(obj, *names):
