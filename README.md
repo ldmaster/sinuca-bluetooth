@@ -10,9 +10,9 @@ Kotlin + OpenGL ES 3.0, sem engine externa.
 
 A mesa segue as medidas reais de uma mesa de torneio de 9 pés (área de jogo
 2,54 × 1,27 m, bolas de 57,15 mm, bocas de 116/127 mm). As caçapas são
-**círculos completos tangentes à linha da boca**, com copo revestido e a
-madeira contornando a abertura; o pano é recortado no círculo, então o verde
-não é invadido e o buraco não fica pela metade. As medidas, fontes e a correspondência com a física estão em
+**círculos completos recuados 25 mm atrás da linha da boca**, com copo
+revestido e shelf; o pano termina na boca, o buraco fica inteiro no trilho e o
+verde não é invadido. As medidas, fontes e a correspondência com a física estão em
 [`docs/table-spec.md`](docs/table-spec.md); o relatório do laboratório de física
 fica em [`docs/physics-report.md`](docs/physics-report.md).
 
@@ -27,9 +27,9 @@ Vistas extras: [100% de cima, com as caçapas](docs/screenshot-top.png) ·
 - Mesa de 9 pés modelada a partir de especificações WPA/BCA: área de jogo
   2,54 × 1,27 m, trilho de 195 mm, almofadas com nariz a 36 mm (63,5% da bola),
   pano de 4 mm sobre slate escuro, copo revestido e facetas de borracha nas
-  pontas das almofadas. As caçapas são círculos completos tangentes à linha da
-  boca, com a metade frontal do aro rebaixada para a bola entrar; o buraco fica
-  dentro da madeira. Nada ultrapassa a moldura.
+  pontas das almofadas. As caçapas são círculos completos recuados 25 mm atrás
+  da linha da boca, com shelf; o buraco fica inteiro dentro da madeira e o pano
+  chega até a boca. Nada ultrapassa a moldura.
 - Bolas de 64×48 segmentos com textura 768×384 de número/listra, brilho
   especular e uma luz pontual sobre a mesa para dar volume às bolas de cor
   única.
@@ -67,6 +67,8 @@ Vistas extras: [100% de cima, com as caçapas](docs/screenshot-top.png) ·
   que encaçapa/defende melhor; o nível controla a busca, o erro de mira e a
   chance de escolher uma tacada pior. A decisão roda em thread própria,
   mostrando **IA PENSANDO** no HUD.
+
+- **Quatro temas de mesa** — Heritage Club, Arena Matte, Foundry Loft e Neo Sport —, cada um com um GLB próprio. O botão **Tema da mesa** no menu principal troca o tema, guarda a escolha em SharedPreferences e o renderer carrega o GLB correspondente.
 
 ## Requisitos
 
@@ -165,8 +167,8 @@ O protocolo usa uma linha JSON por mensagem (`hello`, `start`, `state`, `shot`,
 
 A mesa é gerada deterministicamente por `assets-plans/generate_table.py`, que
 emite `assets-plans/table.json` (operações tipadas do harness, sem scripts
-`bpy`). Nada é improvisado: as cotas vêm de `docs/table-spec.md`. O plano recorta
-o pano e o slate atrás da linha da boca, cunha o copo dentro do trilho, cobre
+`bpy`). Nada é improvisado: as cotas vêm de `docs/table-spec.md`. O plano recua
+a caçapa 25 mm atrás da linha da boca (shelf), cunha o copo dentro do trilho, cobre
 as pontas das almofadas com facetas e mantém as superfícies sem sobreposição
 coplanar. Para regerar:
 

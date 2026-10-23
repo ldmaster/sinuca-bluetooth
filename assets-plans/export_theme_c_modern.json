@@ -1,0 +1,188 @@
+{
+  "schema_version": "1.0.0",
+  "notes": "theme c on modern base, table only",
+  "ops": [
+    {
+      "op": "material",
+      "object": "SM_Rails",
+      "name": "MAT_Wood",
+      "color": [
+        0.02315,
+        0.02519,
+        0.02624,
+        1.0
+      ],
+      "roughness": 0.45,
+      "metallic": 0.7
+    },
+    {
+      "op": "material",
+      "object": "SM_Cloth",
+      "name": "MAT_Cloth",
+      "color": [
+        0.06848,
+        0.01033,
+        0.0137,
+        1.0
+      ],
+      "roughness": 0.9,
+      "metallic": 0.0
+    },
+    {
+      "op": "material",
+      "object": "SM_Cushions",
+      "name": "MAT_Cushion",
+      "color": [
+        0.06848,
+        0.01033,
+        0.0137,
+        1.0
+      ],
+      "roughness": 0.92,
+      "metallic": 0.0
+    },
+    {
+      "op": "material",
+      "object": "SM_Slate",
+      "name": "MAT_Slate",
+      "color": [
+        0.01444,
+        0.016,
+        0.0185,
+        1.0
+      ],
+      "roughness": 0.86,
+      "metallic": 0.0
+    },
+    {
+      "op": "material",
+      "object": "SM_Facings",
+      "name": "MAT_Facing",
+      "color": [
+        0.04231,
+        0.01764,
+        0.00913,
+        1.0
+      ],
+      "roughness": 0.62,
+      "metallic": 0.0
+    },
+    {
+      "op": "material",
+      "object": "SM_Sights",
+      "name": "MAT_Sight",
+      "color": [
+        0.58408,
+        0.25415,
+        0.06848,
+        1.0
+      ],
+      "roughness": 0.35,
+      "metallic": 0.85
+    },
+    {
+      "op": "material",
+      "object": "SM_PocketWells",
+      "name": "MAT_Pocket",
+      "color": [
+        0.26225,
+        0.06848,
+        0.02843,
+        1.0
+      ],
+      "roughness": 0.65,
+      "metallic": 0.35
+    },
+    {
+      "op": "material",
+      "object": "FLOOR",
+      "name": "MAT_Floor",
+      "color": [
+        0.00335,
+        0.00273,
+        0.00243,
+        1.0
+      ],
+      "roughness": 0.65,
+      "metallic": 0.0
+    },
+    {
+      "op": "material",
+      "object": "BACKDROP",
+      "name": "MAT_Backdrop",
+      "color": [
+        0.00243,
+        0.00212,
+        0.00182,
+        1.0
+      ],
+      "roughness": 0.85,
+      "metallic": 0.0
+    },
+    {
+      "op": "delete",
+      "object": "LGT-auto"
+    },
+    {
+      "op": "light",
+      "kind": "sun",
+      "name": "KEY",
+      "location": [
+        2.8,
+        -2.8,
+        5.5
+      ],
+      "energy": 3.8,
+      "color": [
+        1.0,
+        0.45641,
+        0.14413
+      ]
+    },
+    {
+      "op": "light",
+      "kind": "area",
+      "name": "FILL",
+      "location": [
+        -2.8,
+        2.6,
+        2.6
+      ],
+      "energy": 160.0,
+      "color": [
+        0.21223,
+        0.45641,
+        0.58408
+      ]
+    },
+    {
+      "op": "light",
+      "kind": "area",
+      "name": "RIM",
+      "location": [
+        2.6,
+        2.8,
+        2.6
+      ],
+      "energy": 300.0,
+      "color": [
+        0.39676,
+        0.65141,
+        0.7454
+      ]
+    },
+    {
+      "op": "delete",
+      "object": "FLOOR"
+    },
+    {
+      "op": "delete",
+      "object": "BACKDROP"
+    },
+    {
+      "op": "export",
+      "path": "artifacts/table_c_modern.glb",
+      "format": "glb"
+    }
+  ]
+}

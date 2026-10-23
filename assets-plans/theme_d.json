@@ -1,0 +1,188 @@
+{
+  "schema_version": "1.0.0",
+  "ops": [
+    {
+      "op": "material",
+      "object": "SM_Rails",
+      "name": "MAT_Wood",
+      "color": [
+        0.69387,
+        0.68669,
+        0.65141,
+        1.0
+      ],
+      "roughness": 0.3,
+      "metallic": 0.1
+    },
+    {
+      "op": "material",
+      "object": "SM_Cloth",
+      "name": "MAT_Cloth",
+      "color": [
+        0.00335,
+        0.07819,
+        0.39157,
+        1.0
+      ],
+      "roughness": 0.9,
+      "metallic": 0.0
+    },
+    {
+      "op": "material",
+      "object": "SM_Cushions",
+      "name": "MAT_Cushion",
+      "color": [
+        0.00335,
+        0.07819,
+        0.39157,
+        1.0
+      ],
+      "roughness": 0.92,
+      "metallic": 0.0
+    },
+    {
+      "op": "material",
+      "object": "SM_Slate",
+      "name": "MAT_Slate",
+      "color": [
+        0.01033,
+        0.01229,
+        0.01444,
+        1.0
+      ],
+      "roughness": 0.86,
+      "metallic": 0.0
+    },
+    {
+      "op": "material",
+      "object": "SM_Facings",
+      "name": "MAT_Facing",
+      "color": [
+        0.00304,
+        0.00439,
+        0.00605,
+        1.0
+      ],
+      "roughness": 0.62,
+      "metallic": 0.0
+    },
+    {
+      "op": "material",
+      "object": "SM_Sights",
+      "name": "MAT_Sight",
+      "color": [
+        0.02416,
+        0.69387,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.25,
+      "metallic": 0.4
+    },
+    {
+      "op": "material",
+      "object": "SM_PocketWells",
+      "name": "MAT_Pocket",
+      "color": [
+        0.38643,
+        0.41789,
+        0.4452,
+        1.0
+      ],
+      "roughness": 0.3,
+      "metallic": 0.85
+    },
+    {
+      "op": "material",
+      "object": "FLOOR",
+      "name": "MAT_Floor",
+      "color": [
+        0.25415,
+        0.26636,
+        0.27889,
+        1.0
+      ],
+      "roughness": 0.35,
+      "metallic": 0.0
+    },
+    {
+      "op": "material",
+      "object": "BACKDROP",
+      "name": "MAT_Backdrop",
+      "color": [
+        0.57112,
+        0.59062,
+        0.61721,
+        1.0
+      ],
+      "roughness": 0.85,
+      "metallic": 0.0
+    },
+    {
+      "op": "delete",
+      "object": "LGT-auto"
+    },
+    {
+      "op": "light",
+      "kind": "sun",
+      "name": "KEY",
+      "location": [
+        2.8,
+        -2.8,
+        5.5
+      ],
+      "energy": 4.5,
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "op": "light",
+      "kind": "area",
+      "name": "FILL",
+      "location": [
+        -2.8,
+        2.6,
+        2.6
+      ],
+      "energy": 320.0,
+      "color": [
+        0.32778,
+        0.57112,
+        0.7913
+      ]
+    },
+    {
+      "op": "light",
+      "kind": "area",
+      "name": "RIM",
+      "location": [
+        2.6,
+        2.8,
+        2.6
+      ],
+      "energy": 450.0,
+      "color": [
+        0.15896,
+        0.76815,
+        1.0
+      ]
+    },
+    {
+      "op": "render",
+      "path": "renders/theme-d-hero.png",
+      "resolution_x": 1600,
+      "resolution_y": 1200,
+      "engine": "eevee",
+      "samples": 128,
+      "camera": "CAM-hero"
+    },
+    {
+      "op": "save",
+      "path": "theme_d.blend"
+    }
+  ],
+  "notes": "theme d on modern base"
+}

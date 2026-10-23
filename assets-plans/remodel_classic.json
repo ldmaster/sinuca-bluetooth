@@ -1,0 +1,1296 @@
+{
+  "schema_version": "1.0.0",
+  "ops": [
+    {
+      "op": "delete",
+      "object": "SM_Legs"
+    },
+    {
+      "op": "delete",
+      "object": "SM_Sights"
+    },
+    {
+      "op": "delete",
+      "object": "LGT-key"
+    },
+    {
+      "op": "delete",
+      "object": "LGT-fill"
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "LEG_TOP_LB",
+      "size": 1.0,
+      "location": [
+        -1.33,
+        -0.7,
+        0.565
+      ],
+      "scale": [
+        0.12,
+        0.12,
+        0.07
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "LEG_SHAFT_LB",
+      "size": 0.11,
+      "location": [
+        -1.33,
+        -0.7,
+        0.295
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        4.2727272727272725
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "torus",
+      "name": "LEG_COLLAR_LB",
+      "size": 0.16,
+      "location": [
+        -1.33,
+        -0.7,
+        0.16
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        0.5
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "LEG_FOOT_LB",
+      "size": 0.16,
+      "location": [
+        -1.33,
+        -0.7,
+        0.03
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        0.375
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "LEG_BASE_LB",
+      "size": 0.18,
+      "location": [
+        -1.33,
+        -0.7,
+        0.01
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        0.11111111111111112
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "LEG_TOP_LF",
+      "size": 1.0,
+      "location": [
+        -1.33,
+        0.7,
+        0.565
+      ],
+      "scale": [
+        0.12,
+        0.12,
+        0.07
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "LEG_SHAFT_LF",
+      "size": 0.11,
+      "location": [
+        -1.33,
+        0.7,
+        0.295
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        4.2727272727272725
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "torus",
+      "name": "LEG_COLLAR_LF",
+      "size": 0.16,
+      "location": [
+        -1.33,
+        0.7,
+        0.16
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        0.5
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "LEG_FOOT_LF",
+      "size": 0.16,
+      "location": [
+        -1.33,
+        0.7,
+        0.03
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        0.375
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "LEG_BASE_LF",
+      "size": 0.18,
+      "location": [
+        -1.33,
+        0.7,
+        0.01
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        0.11111111111111112
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "LEG_TOP_RB",
+      "size": 1.0,
+      "location": [
+        1.33,
+        -0.7,
+        0.565
+      ],
+      "scale": [
+        0.12,
+        0.12,
+        0.07
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "LEG_SHAFT_RB",
+      "size": 0.11,
+      "location": [
+        1.33,
+        -0.7,
+        0.295
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        4.2727272727272725
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "torus",
+      "name": "LEG_COLLAR_RB",
+      "size": 0.16,
+      "location": [
+        1.33,
+        -0.7,
+        0.16
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        0.5
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "LEG_FOOT_RB",
+      "size": 0.16,
+      "location": [
+        1.33,
+        -0.7,
+        0.03
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        0.375
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "LEG_BASE_RB",
+      "size": 0.18,
+      "location": [
+        1.33,
+        -0.7,
+        0.01
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        0.11111111111111112
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "LEG_TOP_RF",
+      "size": 1.0,
+      "location": [
+        1.33,
+        0.7,
+        0.565
+      ],
+      "scale": [
+        0.12,
+        0.12,
+        0.07
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "LEG_SHAFT_RF",
+      "size": 0.11,
+      "location": [
+        1.33,
+        0.7,
+        0.295
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        4.2727272727272725
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "torus",
+      "name": "LEG_COLLAR_RF",
+      "size": 0.16,
+      "location": [
+        1.33,
+        0.7,
+        0.16
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        0.5
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "LEG_FOOT_RF",
+      "size": 0.16,
+      "location": [
+        1.33,
+        0.7,
+        0.03
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        0.375
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "LEG_BASE_RF",
+      "size": 0.18,
+      "location": [
+        1.33,
+        0.7,
+        0.01
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        0.11111111111111112
+      ]
+    },
+    {
+      "op": "join",
+      "objects": [
+        "LEG_TOP_LB",
+        "LEG_SHAFT_LB",
+        "LEG_COLLAR_LB",
+        "LEG_FOOT_LB",
+        "LEG_BASE_LB",
+        "LEG_TOP_LF",
+        "LEG_SHAFT_LF",
+        "LEG_COLLAR_LF",
+        "LEG_FOOT_LF",
+        "LEG_BASE_LF",
+        "LEG_TOP_RB",
+        "LEG_SHAFT_RB",
+        "LEG_COLLAR_RB",
+        "LEG_FOOT_RB",
+        "LEG_BASE_RB",
+        "LEG_TOP_RF",
+        "LEG_SHAFT_RF",
+        "LEG_COLLAR_RF",
+        "LEG_FOOT_RF",
+        "LEG_BASE_RF"
+      ],
+      "name": "SM_Legs"
+    },
+    {
+      "op": "material",
+      "object": "SM_Legs",
+      "name": "MAT_Wood",
+      "color": [
+        0.06848,
+        0.02519,
+        0.01096,
+        1.0
+      ],
+      "roughness": 0.4,
+      "metallic": 0.0
+    },
+    {
+      "op": "modifier",
+      "object": "SM_Legs",
+      "kind": "bevel",
+      "params": {
+        "width": 0.0015,
+        "segments": 2
+      }
+    },
+    {
+      "op": "apply_modifier",
+      "object": "SM_Legs",
+      "kind": "bevel"
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "APRON_CUT_F",
+      "size": 1.0,
+      "location": [
+        0.0,
+        -0.826,
+        0.675
+      ],
+      "scale": [
+        2.2,
+        0.014,
+        0.1
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "op": "boolean",
+      "object": "SM_Apron",
+      "operand": "APRON_CUT_F",
+      "operation": "difference",
+      "apply": true
+    },
+    {
+      "op": "delete",
+      "object": "APRON_CUT_F"
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "APRON_CUT_B",
+      "size": 1.0,
+      "location": [
+        0.0,
+        0.826,
+        0.675
+      ],
+      "scale": [
+        2.2,
+        0.014,
+        0.1
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "op": "boolean",
+      "object": "SM_Apron",
+      "operand": "APRON_CUT_B",
+      "operation": "difference",
+      "apply": true
+    },
+    {
+      "op": "delete",
+      "object": "APRON_CUT_B"
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "MOLD_T",
+      "size": 1.0,
+      "location": [
+        0.0,
+        -0.834,
+        0.728
+      ],
+      "scale": [
+        2.22,
+        0.012,
+        0.012
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "MOLD_B",
+      "size": 1.0,
+      "location": [
+        0.0,
+        -0.834,
+        0.622
+      ],
+      "scale": [
+        2.22,
+        0.012,
+        0.012
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "MOLD_L",
+      "size": 1.0,
+      "location": [
+        -1.107,
+        -0.834,
+        0.675
+      ],
+      "scale": [
+        0.012,
+        0.012,
+        0.118
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "MOLD_R",
+      "size": 1.0,
+      "location": [
+        1.107,
+        -0.834,
+        0.675
+      ],
+      "scale": [
+        0.012,
+        0.012,
+        0.118
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "op": "join",
+      "objects": [
+        "MOLD_T",
+        "MOLD_B",
+        "MOLD_L",
+        "MOLD_R"
+      ],
+      "name": "SM_Moldings"
+    },
+    {
+      "op": "material",
+      "object": "SM_Moldings",
+      "name": "MAT_Wood",
+      "color": [
+        0.06848,
+        0.02519,
+        0.01096,
+        1.0
+      ],
+      "roughness": 0.4,
+      "metallic": 0.0
+    },
+    {
+      "op": "modifier",
+      "object": "SM_Moldings",
+      "kind": "bevel",
+      "params": {
+        "width": 0.0012,
+        "segments": 2
+      }
+    },
+    {
+      "op": "apply_modifier",
+      "object": "SM_Moldings",
+      "kind": "bevel"
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "SM_Medallion",
+      "size": 0.12,
+      "location": [
+        0.0,
+        -0.826,
+        0.675
+      ],
+      "rotation": [
+        1.5707963267948966,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        0.13333333333333333
+      ]
+    },
+    {
+      "op": "material",
+      "object": "SM_Medallion",
+      "name": "MAT_Brass",
+      "color": [
+        0.43415,
+        0.26636,
+        0.09531,
+        1.0
+      ],
+      "roughness": 0.3,
+      "metallic": 0.9
+    },
+    {
+      "op": "modifier",
+      "object": "SM_Medallion",
+      "kind": "bevel",
+      "params": {
+        "width": 0.0008,
+        "segments": 1
+      }
+    },
+    {
+      "op": "apply_modifier",
+      "object": "SM_Medallion",
+      "kind": "bevel"
+    },
+    {
+      "op": "modifier",
+      "object": "SM_Rails",
+      "kind": "bevel",
+      "params": {
+        "width": 0.005,
+        "segments": 3
+      }
+    },
+    {
+      "op": "apply_modifier",
+      "object": "SM_Rails",
+      "kind": "bevel"
+    },
+    {
+      "op": "modifier",
+      "object": "SM_Apron",
+      "kind": "bevel",
+      "params": {
+        "width": 0.004,
+        "segments": 3
+      }
+    },
+    {
+      "op": "apply_modifier",
+      "object": "SM_Apron",
+      "kind": "bevel"
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "SIGHT_L-3_B",
+      "size": 1.0,
+      "location": [
+        -0.9525,
+        -0.758,
+        0.8015
+      ],
+      "scale": [
+        0.014,
+        0.014,
+        0.003
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.7853981633974483
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "SIGHT_L-3_T",
+      "size": 1.0,
+      "location": [
+        -0.9525,
+        0.758,
+        0.8015
+      ],
+      "scale": [
+        0.014,
+        0.014,
+        0.003
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.7853981633974483
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "SIGHT_L-2_B",
+      "size": 1.0,
+      "location": [
+        -0.635,
+        -0.758,
+        0.8015
+      ],
+      "scale": [
+        0.014,
+        0.014,
+        0.003
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.7853981633974483
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "SIGHT_L-2_T",
+      "size": 1.0,
+      "location": [
+        -0.635,
+        0.758,
+        0.8015
+      ],
+      "scale": [
+        0.014,
+        0.014,
+        0.003
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.7853981633974483
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "SIGHT_L-1_B",
+      "size": 1.0,
+      "location": [
+        -0.3175,
+        -0.758,
+        0.8015
+      ],
+      "scale": [
+        0.014,
+        0.014,
+        0.003
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.7853981633974483
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "SIGHT_L-1_T",
+      "size": 1.0,
+      "location": [
+        -0.3175,
+        0.758,
+        0.8015
+      ],
+      "scale": [
+        0.014,
+        0.014,
+        0.003
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.7853981633974483
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "SIGHT_L1_B",
+      "size": 1.0,
+      "location": [
+        0.3175,
+        -0.758,
+        0.8015
+      ],
+      "scale": [
+        0.014,
+        0.014,
+        0.003
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.7853981633974483
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "SIGHT_L1_T",
+      "size": 1.0,
+      "location": [
+        0.3175,
+        0.758,
+        0.8015
+      ],
+      "scale": [
+        0.014,
+        0.014,
+        0.003
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.7853981633974483
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "SIGHT_L2_B",
+      "size": 1.0,
+      "location": [
+        0.635,
+        -0.758,
+        0.8015
+      ],
+      "scale": [
+        0.014,
+        0.014,
+        0.003
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.7853981633974483
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "SIGHT_L2_T",
+      "size": 1.0,
+      "location": [
+        0.635,
+        0.758,
+        0.8015
+      ],
+      "scale": [
+        0.014,
+        0.014,
+        0.003
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.7853981633974483
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "SIGHT_L3_B",
+      "size": 1.0,
+      "location": [
+        0.9525,
+        -0.758,
+        0.8015
+      ],
+      "scale": [
+        0.014,
+        0.014,
+        0.003
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.7853981633974483
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "SIGHT_L3_T",
+      "size": 1.0,
+      "location": [
+        0.9525,
+        0.758,
+        0.8015
+      ],
+      "scale": [
+        0.014,
+        0.014,
+        0.003
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.7853981633974483
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "SIGHT_S-1_L",
+      "size": 1.0,
+      "location": [
+        -1.393,
+        -0.3175,
+        0.8015
+      ],
+      "scale": [
+        0.014,
+        0.014,
+        0.003
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.7853981633974483
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "SIGHT_S-1_R",
+      "size": 1.0,
+      "location": [
+        1.393,
+        -0.3175,
+        0.8015
+      ],
+      "scale": [
+        0.014,
+        0.014,
+        0.003
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.7853981633974483
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "SIGHT_S0_L",
+      "size": 1.0,
+      "location": [
+        -1.393,
+        0.0,
+        0.8015
+      ],
+      "scale": [
+        0.014,
+        0.014,
+        0.003
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.7853981633974483
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "SIGHT_S0_R",
+      "size": 1.0,
+      "location": [
+        1.393,
+        0.0,
+        0.8015
+      ],
+      "scale": [
+        0.014,
+        0.014,
+        0.003
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.7853981633974483
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "SIGHT_S1_L",
+      "size": 1.0,
+      "location": [
+        -1.393,
+        0.3175,
+        0.8015
+      ],
+      "scale": [
+        0.014,
+        0.014,
+        0.003
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.7853981633974483
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "SIGHT_S1_R",
+      "size": 1.0,
+      "location": [
+        1.393,
+        0.3175,
+        0.8015
+      ],
+      "scale": [
+        0.014,
+        0.014,
+        0.003
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.7853981633974483
+      ]
+    },
+    {
+      "op": "join",
+      "objects": [
+        "SIGHT_L-3_B",
+        "SIGHT_L-3_T",
+        "SIGHT_L-2_B",
+        "SIGHT_L-2_T",
+        "SIGHT_L-1_B",
+        "SIGHT_L-1_T",
+        "SIGHT_L1_B",
+        "SIGHT_L1_T",
+        "SIGHT_L2_B",
+        "SIGHT_L2_T",
+        "SIGHT_L3_B",
+        "SIGHT_L3_T",
+        "SIGHT_S-1_L",
+        "SIGHT_S-1_R",
+        "SIGHT_S0_L",
+        "SIGHT_S0_R",
+        "SIGHT_S1_L",
+        "SIGHT_S1_R"
+      ],
+      "name": "SM_Sights"
+    },
+    {
+      "op": "material",
+      "object": "SM_Sights",
+      "name": "MAT_Sight",
+      "color": [
+        0.80695,
+        0.71569,
+        0.52712,
+        1.0
+      ],
+      "roughness": 0.3,
+      "metallic": 0.2
+    },
+    {
+      "op": "modifier",
+      "object": "SM_Sights",
+      "kind": "bevel",
+      "params": {
+        "width": 0.0005,
+        "segments": 1
+      }
+    },
+    {
+      "op": "apply_modifier",
+      "object": "SM_Sights",
+      "kind": "bevel"
+    },
+    {
+      "op": "primitive",
+      "kind": "plane",
+      "name": "FLOOR",
+      "size": 9.0,
+      "location": [
+        0.0,
+        0.0,
+        -0.002
+      ]
+    },
+    {
+      "op": "material",
+      "object": "FLOOR",
+      "name": "MAT_Floor",
+      "color": [
+        0.00304,
+        0.00304,
+        0.00335,
+        1.0
+      ],
+      "roughness": 0.6,
+      "metallic": 0.0
+    },
+    {
+      "op": "primitive",
+      "kind": "plane",
+      "name": "BACKDROP",
+      "size": 9.0,
+      "location": [
+        -4.0,
+        0.0,
+        1.6
+      ],
+      "rotation": [
+        0.0,
+        1.5707963267948966,
+        0.0
+      ]
+    },
+    {
+      "op": "material",
+      "object": "BACKDROP",
+      "name": "MAT_Backdrop",
+      "color": [
+        0.00243,
+        0.00273,
+        0.00304,
+        1.0
+      ],
+      "roughness": 0.85,
+      "metallic": 0.0
+    },
+    {
+      "op": "camera",
+      "name": "CAM-hero",
+      "location": [
+        3.6,
+        -3.9,
+        2.6
+      ],
+      "look_at": [
+        0.0,
+        0.0,
+        0.66
+      ],
+      "lens": 52.0
+    },
+    {
+      "op": "camera",
+      "name": "CAM-top",
+      "location": [
+        0.0,
+        0.0,
+        6.0
+      ],
+      "look_at": [
+        0.0,
+        0.0,
+        0.6
+      ],
+      "lens": 50.0
+    },
+    {
+      "op": "camera",
+      "name": "CAM-pocket",
+      "location": [
+        2.25,
+        -2.05,
+        1.5
+      ],
+      "look_at": [
+        1.16,
+        -0.57,
+        0.78
+      ],
+      "lens": 80.0
+    },
+    {
+      "op": "render",
+      "path": "renders/base-classic.png",
+      "resolution_x": 1200,
+      "resolution_y": 900,
+      "engine": "eevee",
+      "samples": 64,
+      "camera": "CAM-hero"
+    },
+    {
+      "op": "save",
+      "path": "table_classic.blend"
+    }
+  ],
+  "notes": "classic base"
+}

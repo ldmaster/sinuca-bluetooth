@@ -16,8 +16,9 @@ object Table {
 
     const val CORNER_HOLE_RADIUS = 0.068
     const val SIDE_HOLE_RADIUS = 0.070
-    const val CORNER_HOLE_OFFSET = CORNER_HOLE_RADIUS / 1.4142135623730951
-    const val SIDE_HOLE_OFFSET = SIDE_HOLE_RADIUS
+    const val POCKET_SHELF = 0.025
+    const val CORNER_HOLE_OFFSET = (CORNER_HOLE_RADIUS + POCKET_SHELF) / 1.4142135623730951
+    const val SIDE_HOLE_OFFSET = SIDE_HOLE_RADIUS + POCKET_SHELF
 
     data class Pocket(
         val x: Double,
@@ -36,9 +37,10 @@ object Table {
     )
 
     /**
-     * Visible hole centres. They sit just outside the mouth so the hole is a
-     * complete circle tangent to the cushion line; the mouth itself is the
-     * capture line used by [captured].
+     * Visible hole centres. They sit one shelf depth behind the mouth so the
+     * hole is a complete circle inside the rail; the green keeps a shelf
+     * between the mouth and the hole. The mouth itself is the capture line
+     * used by [captured].
      */
     val POCKETS: List<Pocket> = listOf(
         Pocket(HALF_LENGTH + CORNER_HOLE_OFFSET, HALF_WIDTH + CORNER_HOLE_OFFSET, true),

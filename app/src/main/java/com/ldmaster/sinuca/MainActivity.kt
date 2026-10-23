@@ -24,6 +24,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import com.ldmaster.sinuca.game.AiLevel
+import com.ldmaster.sinuca.game.TableTheme
 import com.ldmaster.sinuca.net.BluetoothGame
 import com.ldmaster.sinuca.net.NetMessage
 import com.ldmaster.sinuca.net.Session
@@ -39,6 +40,8 @@ class MainActivity : Activity() {
 
     private lateinit var status: TextView
     private lateinit var devices: LinearLayout
+    private lateinit var themeButton: Button
+    private var tableTheme = TableTheme.DEFAULT
     private val found = LinkedHashMap<String, BluetoothDevice>()
 
     private val menuListener = object : BluetoothGame.Listener {
@@ -85,6 +88,10 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         adapter = BluetoothAdapter.getDefaultAdapter()
+        tableTheme = TableTheme.fromKey(
+            getSharedPreferences(TableTheme.PREFS, MODE_PRIVATE)
+                .getString(TableTheme.KEY, null)
+        )
         setContentView(buildUi())
         registerDiscovery()
         status.text = if (adapter == null) {
@@ -137,6 +144,10 @@ class MainActivity : Activity() {
         column.addView(button("Entrar em partida", "#1B4F72") { joinGame() })
         column.addView(button("Jogar contra IA", "#2C5F8A") { chooseAiLevel() })
         column.addView(button("Treino local", "#3B3B4A") { practice() })
+        themeButton = button("Tema da mesa · ${tableTheme.label}", "#243A52") {
+            chooseTheme()
+        }
+        column.addView(themeButton)
 
         status = text("Pronto.", 14f, "#C7D2DE").apply {
             setPadding(0, dp(20), 0, dp(12))
@@ -208,6 +219,23 @@ class MainActivity : Activity() {
                 status.text = if (started) "Procurando aparelhos Bluetooth…" else "Mostrando aparelhos pareados."
             }
         }
+    }
+
+    private fun chooseTheme() {
+        val themes = TableTheme.entries
+        val labels = themes.map { "${it.label} — ${it.description}" }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("Tema da mesa")
+            .setSingleChoiceItems(labels, themes.indexOf(tableTheme)) { dialog, which ->
+                tableTheme = themes[which]
+                getSharedPreferences(TableTheme.PREFS, MODE_PRIVATE)
+                    .edit()
+                    .putString(TableTheme.KEY, tableTheme.key)
+                    .apply()
+                themeButton.text = "Tema da mesa · ${tableTheme.label}"
+                dialog.dismiss()
+            }
+            .show()
     }
 
     private fun chooseAiLevel() {

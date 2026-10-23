@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0.0",
+  "notes": "export table-only theme d",
+  "ops": [
+    {
+      "op": "delete",
+      "object": "FLOOR"
+    },
+    {
+      "op": "delete",
+      "object": "BACKDROP"
+    },
+    {
+      "op": "export",
+      "path": "artifacts/table_d.glb",
+      "format": "glb"
+    }
+  ]
+}

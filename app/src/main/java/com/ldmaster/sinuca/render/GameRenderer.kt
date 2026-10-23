@@ -16,6 +16,7 @@ import com.ldmaster.sinuca.game.Ball
 import com.ldmaster.sinuca.game.Contact
 import com.ldmaster.sinuca.game.GameWorld
 import com.ldmaster.sinuca.game.Table
+import com.ldmaster.sinuca.game.TableTheme
 import com.ldmaster.sinuca.game.TrajectoryPredictor
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -30,7 +31,8 @@ import kotlin.math.sin
 class GameRenderer(
     private val context: Context,
     private val world: GameWorld,
-    private val mirrored: Boolean
+    private val mirrored: Boolean,
+    private val theme: TableTheme = TableTheme.DEFAULT
 ) : GLSurfaceView.Renderer {
 
     @Volatile
@@ -107,7 +109,7 @@ class GameRenderer(
         uLineColor = GLES30.glGetUniformLocation(lineProgram, "uColor")
 
         try {
-            tableMesh = GpuMesh(GlbLoader.load(context, "models/table.glb"))
+            tableMesh = GpuMesh(loadTable())
             val cue = GlbLoader.load(context, "models/cue.glb")
             cueMesh = GpuMesh(cue)
             var maxX = 0f
@@ -128,6 +130,13 @@ class GameRenderer(
         GLES30.glGenBuffers(1, ids, 0)
         lineBuffer = ids[0]
         lastFrame = System.nanoTime()
+    }
+
+    private fun loadTable(): MeshData = runCatching {
+        GlbLoader.load(context, theme.asset)
+    }.getOrElse { error ->
+        Log.e(TAG, "failed to load ${theme.asset}; falling back to table.glb", error)
+        GlbLoader.load(context, "models/table.glb")
     }
 
     override fun onSurfaceChanged(gl: GL10?, surfaceWidth: Int, surfaceHeight: Int) {

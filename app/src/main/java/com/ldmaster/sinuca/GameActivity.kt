@@ -13,6 +13,7 @@ import android.widget.Toast
 import com.ldmaster.sinuca.game.AiLevel
 import com.ldmaster.sinuca.game.AiPlayer
 import com.ldmaster.sinuca.game.GameWorld
+import com.ldmaster.sinuca.game.TableTheme
 import com.ldmaster.sinuca.net.NetMessage
 import com.ldmaster.sinuca.net.Session
 import com.ldmaster.sinuca.net.Wire
@@ -104,8 +105,17 @@ class GameActivity : Activity() {
         practice = !ai && intent.getIntExtra("player", 0) == -1
         localPlayer = if (practice) -1 else if (ai) 0 else intent.getIntExtra("player", 0)
         world = GameWorld(practice)
+        val tableTheme = TableTheme.fromKey(
+            getSharedPreferences(TableTheme.PREFS, MODE_PRIVATE)
+                .getString(TableTheme.KEY, null)
+        )
 
-        renderer = GameRenderer(applicationContext, world, mirrored = localPlayer == 1)
+        renderer = GameRenderer(
+            applicationContext,
+            world,
+            mirrored = localPlayer == 1,
+            theme = tableTheme
+        )
         renderer.localPlayer = localPlayer
 
         surface = GLSurfaceView(this).apply {

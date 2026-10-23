@@ -27,18 +27,20 @@ feita nos dois lugares.
 
 ## Geométrico
 
-- A caçapa é um **círculo completo**, tangente à linha da boca. O centro fica
-  deslocado para dentro do trilho pelo raio interno (68 mm no canto, 70 mm na
-  central); o pano e o slate são recortados nesse círculo. O verde termina no
-  arco do círculo e o buraco fica inteiro na madeira.
+- A caçapa é um **círculo completo atrás da linha da boca**, recuado pelo raio
+  interno mais um **shelf de 25 mm** (o centro fica a 93 mm da boca no canto e
+  95 mm na central). O pano e o slate **não são recortados**: a boca continua na
+  linha da almofada, a prateleira é o trilho/casting e o buraco fica inteiro na
+  madeira, sem morder o verde.
 - O copo é um tubo completo. A metade do aro voltada para a mesa é rebaixada
   4 mm (fica abaixo do pano) para a bola entrar; a metade externa mantém o aro
   escuro na altura do trilho. Assim o buraco aparece inteiro, sem meia-lua.
 - As pontas das almofadas são recuadas para abrir as bocas (82,0 mm em cada
   direção no canto, 63,5 mm de cada lado na central) e recebem facetas escuras
   de 22 mm.
-- O pano (4 mm) e o slate (46 mm) são cortados pelo mesmo círculo; a borda
-  verde é o arco do círculo e o slate escuro aparece sob o copo.
+- O pano (4 mm) e o slate (46 mm) terminam na boca e não são cortados pela
+  caçapa; o buraco está 25 mm atrás, todo no trilho, e o slate escuro aparece
+  sob o copo. O pano permanece inteiro até a linha da almofada.
 
 ## Física correspondente
 
