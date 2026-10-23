@@ -27,30 +27,29 @@ feita nos dois lugares.
 
 ## Geométrico
 
-- A caçapa de canto é uma circunferência centrada no vértice da área de jogo,
-  com o trilho de madeira contornando-a por fora. A boca é a **corda entre as
-  pontas das almofadas**; o pano é recortado só atrás dessa corda, de modo que
-  o buraco fica inteiro na madeira e o verde não é invadido.
-- A caçapa central segue a mesma regra: o pano é recortado a partir da linha da
-  almofada, e o copo fica atrás dela.
-- O copo é uma peça única: um poço fechado abaixo do pano e uma meia-camisa
-  acima dele. Só a metade voltada para a caçapa é mantida; a metade voltada
-  para o pano é removida para nunca aparecer como um aro escuro sobre o verde.
+- A caçapa é um **círculo completo**, tangente à linha da boca. O centro fica
+  deslocado para dentro do trilho pelo raio interno (68 mm no canto, 70 mm na
+  central); o pano e o slate são recortados nesse círculo. O verde termina no
+  arco do círculo e o buraco fica inteiro na madeira.
+- O copo é um tubo completo. A metade do aro voltada para a mesa é rebaixada
+  4 mm (fica abaixo do pano) para a bola entrar; a metade externa mantém o aro
+  escuro na altura do trilho. Assim o buraco aparece inteiro, sem meia-lua.
 - As pontas das almofadas são recuadas para abrir as bocas (82,0 mm em cada
   direção no canto, 63,5 mm de cada lado na central) e recebem facetas escuras
-  de 22 mm, cobrindo o tecido verde da ponta.
-- O pano (4 mm) e o slate (46 mm) são cortados pelo mesmo recorte de boca, então
-  a borda verde é uma linha fina com slate escuro embaixo, e não uma parede
-  verde dentro da caçapa.
+  de 22 mm.
+- O pano (4 mm) e o slate (46 mm) são cortados pelo mesmo círculo; a borda
+  verde é o arco do círculo e o slate escuro aparece sob o copo.
 
 ## Física correspondente
 
 `Table.kt` expõe as mesmas grandezas:
 
-- A captura só acontece **depois** que o centro da bola cruza a linha da boca:
-  a corda entre as pontas no canto (`u + v ≤ CORNER_TIP`) ou a linha da
-  almofada na central (`|x| ≤ SIDE_TIP` e a bola além da linha).
-- O copo fica atrás dessa linha; uma bola que passa fora da boca bate na
+- A captura acontece quando o centro da bola cruza a linha da boca: a corda
+  entre as pontas no canto (`u + v ≤ CORNER_TIP`) ou a linha da almofada na
+  central (`|x| ≤ SIDE_TIP` e a bola além da linha). A animação de queda leva
+  a bola até o centro do círculo visível.
+- A captura fica na boca (e não no centro do círculo) para que uma bola que
+  rola junto à almofada também caia. Uma bola que passa fora da boca bate na
   mandíbula (cápsula da almofada) e continua em jogo.
 - A folga para uma bola entrar de frente na caçapa central é a boca menos o
   diâmetro da bola (127 − 57 ≈ 70 mm, ou ±35 mm de centro), que é o que o

@@ -14,6 +14,11 @@ object Table {
     const val CORNER_TIP = CORNER_MOUTH / 1.4142135623730951
     const val SIDE_TIP = SIDE_MOUTH / 2.0
 
+    const val CORNER_HOLE_RADIUS = 0.068
+    const val SIDE_HOLE_RADIUS = 0.070
+    const val CORNER_HOLE_OFFSET = CORNER_HOLE_RADIUS / 1.4142135623730951
+    const val SIDE_HOLE_OFFSET = SIDE_HOLE_RADIUS
+
     data class Pocket(
         val x: Double,
         val z: Double,
@@ -30,13 +35,18 @@ object Table {
         val z2: Double
     )
 
+    /**
+     * Visible hole centres. They sit just outside the mouth so the hole is a
+     * complete circle tangent to the cushion line; the mouth itself is the
+     * capture line used by [captured].
+     */
     val POCKETS: List<Pocket> = listOf(
-        Pocket(HALF_LENGTH, HALF_WIDTH, true),
-        Pocket(HALF_LENGTH, -HALF_WIDTH, true),
-        Pocket(-HALF_LENGTH, HALF_WIDTH, true),
-        Pocket(-HALF_LENGTH, -HALF_WIDTH, true),
-        Pocket(0.0, HALF_WIDTH, false),
-        Pocket(0.0, -HALF_WIDTH, false)
+        Pocket(HALF_LENGTH + CORNER_HOLE_OFFSET, HALF_WIDTH + CORNER_HOLE_OFFSET, true),
+        Pocket(HALF_LENGTH + CORNER_HOLE_OFFSET, -HALF_WIDTH - CORNER_HOLE_OFFSET, true),
+        Pocket(-HALF_LENGTH - CORNER_HOLE_OFFSET, HALF_WIDTH + CORNER_HOLE_OFFSET, true),
+        Pocket(-HALF_LENGTH - CORNER_HOLE_OFFSET, -HALF_WIDTH - CORNER_HOLE_OFFSET, true),
+        Pocket(0.0, HALF_WIDTH + SIDE_HOLE_OFFSET, false),
+        Pocket(0.0, -HALF_WIDTH - SIDE_HOLE_OFFSET, false)
     )
 
     val CUSHIONS: List<Cushion> = buildList {

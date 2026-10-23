@@ -125,33 +125,17 @@ CLOTH_Z = (CLOTH_TOP + SLATE_TOP) / 2.0
 SLATE_Z = (SLATE_TOP + SLATE_BOTTOM) / 2.0
 
 
-def mouth_cut(name: str, x: float, y: float, corner: bool, inward: bool,
-              width: float, depth: float, z_center: float, z0: float,
-              z1: float) -> str:
-    """Box on one side of the pocket mouth line.
-
-    The mouth is the chord between the cushion tips for a corner pocket and
-    the segment between the tips for a side pocket. ``inward`` selects the
-    playing side (used to trim the visible half of the liner); otherwise the
-    box covers the pocket side (used to cut the cloth). The corner boxes are
-    rotated to align with the chord.
-    """
+def hole_center(x: float, y: float, corner: bool) -> tuple[float, float]:
+    """Visible pocket centre, pushed out of the playing surface so the hole is
+    a full circle tangent to the mouth line (never a half hole and never a bite
+    into the green)."""
     if corner:
         sx = 1.0 if x > 0 else -1.0
         sy = 1.0 if y > 0 else -1.0
-        ox, oy = sx / math.sqrt(2.0), sy / math.sqrt(2.0)
-        angle = math.atan2(sy, sx)
-        chord_x = x - ox * (CORNER_TIP / math.sqrt(2.0))
-        chord_y = y - oy * (CORNER_TIP / math.sqrt(2.0))
-        sign = -1.0 if inward else 1.0
-        cx = chord_x + sign * ox * depth / 2.0
-        cy = chord_y + sign * oy * depth / 2.0
-        return cube(name, (cx, cy, z_center), (depth, width, z1 - z0),
-                    rotation=(0.0, 0.0, angle))
+        offset = WELL_INNER / math.sqrt(2.0)
+        return x + sx * offset, y + sy * offset
     sy = 1.0 if y > 0 else -1.0
-    sign = -1.0 if inward else 1.0
-    cy = y + sign * sy * depth / 2.0
-    return cube(name, (0.0, cy, z_center), (width, depth, z1 - z0))
+    return 0.0, y + sy * SIDE_WELL_INNER
 
 
 # --------------------------------------------------------------------------- #
@@ -164,12 +148,10 @@ def build_cloth() -> None:
     cube("SM_Slate", (0.0, 0.0, SLATE_Z),
          (HALF_L * 2.0, HALF_W * 2.0, SLATE_TOP - SLATE_BOTTOM))
     for name, x, y, corner in POCKETS:
-        cutter = mouth_cut(
-            f"CUT_MOUTH_{name}", x, y, corner, inward=False,
-            width=CORNER_MOUTH + 0.002 if corner else SIDE_MOUTH + 0.002,
-            depth=0.30, z_center=SLATE_Z, z0=SLATE_BOTTOM - 0.01,
-            z1=CLOTH_TOP + 0.01,
-        )
+        hx, hy = hole_center(x, y, corner)
+        radius = (WELL_INNER if corner else SIDE_WELL_INNER) + 0.001
+        cutter = cylinder(f"CUT_CLOTH_{name}", (hx, hy, SLATE_Z),
+                          radius * 2.0, CLOTH_TOP + 0.01 - (SLATE_BOTTOM - 0.01))
         op("boolean", object="SM_Cloth", operand=cutter,
            operation="difference", apply=True)
         op("boolean", object="SM_Slate", operand=cutter,
@@ -266,8 +248,9 @@ def build_rails() -> None:
             x, y, corner = next(
                 (p[1], p[2], p[3]) for p in POCKETS if p[0] == name
             )
-            radius = CORNER_RAIL_R if corner else SIDE_RAIL_R
-            hole(rail, f"CUT_RAIL_{name}", x, y, radius,
+            hx, hy = hole_center(x, y, corner)
+            radius = (CORNER_RAIL_R if corner else SIDE_RAIL_R) + 0.001
+            hole(rail, f"CUT_RAIL_{name}", hx, hy, radius,
                  RAIL_BOTTOM - 0.01, RAIL_TOP + 0.01)
 
     segments = []
@@ -305,24 +288,37 @@ def build_rails() -> None:
 def build_pockets() -> None:
     wells = []
     for name, x, y, corner in POCKETS:
+        hx, hy = hole_center(x, y, corner)
         outer = WELL_OUTER if corner else SIDE_WELL_OUTER
         inner = WELL_INNER if corner else SIDE_WELL_INNER
         well_top = RAIL_TOP
-        well = cylinder(f"WELL_{name}", (x, y, (WELL_BOTTOM + well_top) / 2.0),
+        well = cylinder(f"WELL_{name}", (hx, hy, (WELL_BOTTOM + well_top) / 2.0),
                          outer * 2.0, well_top - WELL_BOTTOM)
-        cylinder(f"WELLCUT_{name}", (x, y, (WELL_BOTTOM + 0.025 + well_top + 0.01) / 2.0),
+        cylinder(f"WELLCUT_{name}", (hx, hy, (WELL_BOTTOM + 0.025 + well_top + 0.01) / 2.0),
                  inner * 2.0, well_top + 0.01 - (WELL_BOTTOM + 0.025))
         cut(well, f"WELLCUT_{name}")
 
-        # The liner is a full cup below the cloth, but its upper half facing
-        # the playing surface is removed: only the pocket-side half is visible,
-        # so no dark ring ever sits over the green.
-        upper = mouth_cut(
-            f"CUT_WELLTOP_{name}", x, y, corner, inward=True,
-            width=CORNER_MOUTH + 0.002 if corner else 0.30,
-            depth=0.30, z_center=(SLATE_TOP + 0.810) / 2.0,
-            z0=SLATE_TOP, z1=0.810,
-        )
+        # Only the half of the rim facing the table is lowered: the ball rolls
+        # over it into a full circular hole, while the outer half keeps the
+        # dark casting at rail height.
+        if corner:
+            sx = 1.0 if x > 0 else -1.0
+            sy = 1.0 if y > 0 else -1.0
+            ox, oy = sx / math.sqrt(2.0), sy / math.sqrt(2.0)
+            angle = math.atan2(sy, sx)
+            cx = hx - ox * 0.15
+            cy = hy - oy * 0.15
+            upper = cube(
+                f"CUT_WELLTOP_{name}", (cx, cy, (SLATE_TOP + 0.810) / 2.0),
+                (0.30, outer * 2.0 + 0.01, 0.810 - SLATE_TOP),
+                rotation=(0.0, 0.0, angle),
+            )
+        else:
+            sy = 1.0 if y > 0 else -1.0
+            upper = cube(
+                f"CUT_WELLTOP_{name}", (0.0, hy - sy * 0.15, (SLATE_TOP + 0.810) / 2.0),
+                (0.30, 0.30, 0.810 - SLATE_TOP),
+            )
         cut(well, upper)
         wells.append(well)
 
@@ -339,8 +335,9 @@ def build_apron_and_legs() -> None:
     cube("SM_Apron", (0.0, 0.0, z_mid),
          (FRAME_HALF_L * 2.0, FRAME_HALF_W * 2.0, apron_top - APRON_BOTTOM))
     for name, x, y, corner in POCKETS:
+        hx, hy = hole_center(x, y, corner)
         radius = (WELL_OUTER if corner else SIDE_WELL_OUTER) + 0.002
-        hole("SM_Apron", f"CUT_APRON_{name}", x, y, radius,
+        hole("SM_Apron", f"CUT_APRON_{name}", hx, hy, radius,
              APRON_BOTTOM - 0.01, apron_top + 0.01)
     bevel("SM_Apron", 0.0025, 2)
     material("SM_Apron", "MAT_Wood", (0.170, 0.072, 0.034), 0.48)

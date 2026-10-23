@@ -49,237 +49,237 @@
     },
     {
       "op": "primitive",
-      "kind": "cube",
-      "name": "CUT_MOUTH_C0",
-      "size": 1.0,
+      "kind": "cylinder",
+      "name": "CUT_CLOTH_C0",
+      "size": 0.138,
       "location": [
-        1.3350538238691625,
-        0.7000538238691624,
+        1.3180832611206852,
+        0.6830832611206853,
         0.723
-      ],
-      "scale": [
-        0.3,
-        0.11800000000000001,
-        0.07000000000000006
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        0.7853981633974483
-      ]
-    },
-    {
-      "op": "boolean",
-      "object": "SM_Cloth",
-      "operand": "CUT_MOUTH_C0",
-      "operation": "difference",
-      "apply": true
-    },
-    {
-      "op": "boolean",
-      "object": "SM_Slate",
-      "operand": "CUT_MOUTH_C0",
-      "operation": "difference",
-      "apply": true
-    },
-    {
-      "op": "delete",
-      "object": "CUT_MOUTH_C0"
-    },
-    {
-      "op": "primitive",
-      "kind": "cube",
-      "name": "CUT_MOUTH_C1",
-      "size": 1.0,
-      "location": [
-        1.3350538238691625,
-        -0.7000538238691624,
-        0.723
-      ],
-      "scale": [
-        0.3,
-        0.11800000000000001,
-        0.07000000000000006
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        -0.7853981633974483
-      ]
-    },
-    {
-      "op": "boolean",
-      "object": "SM_Cloth",
-      "operand": "CUT_MOUTH_C1",
-      "operation": "difference",
-      "apply": true
-    },
-    {
-      "op": "boolean",
-      "object": "SM_Slate",
-      "operand": "CUT_MOUTH_C1",
-      "operation": "difference",
-      "apply": true
-    },
-    {
-      "op": "delete",
-      "object": "CUT_MOUTH_C1"
-    },
-    {
-      "op": "primitive",
-      "kind": "cube",
-      "name": "CUT_MOUTH_C2",
-      "size": 1.0,
-      "location": [
-        -1.3350538238691625,
-        0.7000538238691624,
-        0.723
-      ],
-      "scale": [
-        0.3,
-        0.11800000000000001,
-        0.07000000000000006
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        2.356194490192345
-      ]
-    },
-    {
-      "op": "boolean",
-      "object": "SM_Cloth",
-      "operand": "CUT_MOUTH_C2",
-      "operation": "difference",
-      "apply": true
-    },
-    {
-      "op": "boolean",
-      "object": "SM_Slate",
-      "operand": "CUT_MOUTH_C2",
-      "operation": "difference",
-      "apply": true
-    },
-    {
-      "op": "delete",
-      "object": "CUT_MOUTH_C2"
-    },
-    {
-      "op": "primitive",
-      "kind": "cube",
-      "name": "CUT_MOUTH_C3",
-      "size": 1.0,
-      "location": [
-        -1.3350538238691625,
-        -0.7000538238691624,
-        0.723
-      ],
-      "scale": [
-        0.3,
-        0.11800000000000001,
-        0.07000000000000006
-      ],
-      "rotation": [
-        0.0,
-        0.0,
-        -2.356194490192345
-      ]
-    },
-    {
-      "op": "boolean",
-      "object": "SM_Cloth",
-      "operand": "CUT_MOUTH_C3",
-      "operation": "difference",
-      "apply": true
-    },
-    {
-      "op": "boolean",
-      "object": "SM_Slate",
-      "operand": "CUT_MOUTH_C3",
-      "operation": "difference",
-      "apply": true
-    },
-    {
-      "op": "delete",
-      "object": "CUT_MOUTH_C3"
-    },
-    {
-      "op": "primitive",
-      "kind": "cube",
-      "name": "CUT_MOUTH_S0",
-      "size": 1.0,
-      "location": [
-        0.0,
-        0.785,
-        0.723
-      ],
-      "scale": [
-        0.129,
-        0.3,
-        0.07000000000000006
       ],
       "rotation": [
         0.0,
         0.0,
         0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        0.5072463768115946
       ]
     },
     {
       "op": "boolean",
       "object": "SM_Cloth",
-      "operand": "CUT_MOUTH_S0",
+      "operand": "CUT_CLOTH_C0",
       "operation": "difference",
       "apply": true
     },
     {
       "op": "boolean",
       "object": "SM_Slate",
-      "operand": "CUT_MOUTH_S0",
+      "operand": "CUT_CLOTH_C0",
       "operation": "difference",
       "apply": true
     },
     {
       "op": "delete",
-      "object": "CUT_MOUTH_S0"
+      "object": "CUT_CLOTH_C0"
     },
     {
       "op": "primitive",
-      "kind": "cube",
-      "name": "CUT_MOUTH_S1",
-      "size": 1.0,
+      "kind": "cylinder",
+      "name": "CUT_CLOTH_C1",
+      "size": 0.138,
       "location": [
-        0.0,
-        -0.785,
+        1.3180832611206852,
+        -0.6830832611206853,
         0.723
-      ],
-      "scale": [
-        0.129,
-        0.3,
-        0.07000000000000006
       ],
       "rotation": [
         0.0,
         0.0,
         0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        0.5072463768115946
       ]
     },
     {
       "op": "boolean",
       "object": "SM_Cloth",
-      "operand": "CUT_MOUTH_S1",
+      "operand": "CUT_CLOTH_C1",
       "operation": "difference",
       "apply": true
     },
     {
       "op": "boolean",
       "object": "SM_Slate",
-      "operand": "CUT_MOUTH_S1",
+      "operand": "CUT_CLOTH_C1",
       "operation": "difference",
       "apply": true
     },
     {
       "op": "delete",
-      "object": "CUT_MOUTH_S1"
+      "object": "CUT_CLOTH_C1"
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "CUT_CLOTH_C2",
+      "size": 0.138,
+      "location": [
+        -1.3180832611206852,
+        0.6830832611206853,
+        0.723
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        0.5072463768115946
+      ]
+    },
+    {
+      "op": "boolean",
+      "object": "SM_Cloth",
+      "operand": "CUT_CLOTH_C2",
+      "operation": "difference",
+      "apply": true
+    },
+    {
+      "op": "boolean",
+      "object": "SM_Slate",
+      "operand": "CUT_CLOTH_C2",
+      "operation": "difference",
+      "apply": true
+    },
+    {
+      "op": "delete",
+      "object": "CUT_CLOTH_C2"
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "CUT_CLOTH_C3",
+      "size": 0.138,
+      "location": [
+        -1.3180832611206852,
+        -0.6830832611206853,
+        0.723
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        0.5072463768115946
+      ]
+    },
+    {
+      "op": "boolean",
+      "object": "SM_Cloth",
+      "operand": "CUT_CLOTH_C3",
+      "operation": "difference",
+      "apply": true
+    },
+    {
+      "op": "boolean",
+      "object": "SM_Slate",
+      "operand": "CUT_CLOTH_C3",
+      "operation": "difference",
+      "apply": true
+    },
+    {
+      "op": "delete",
+      "object": "CUT_CLOTH_C3"
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "CUT_CLOTH_S0",
+      "size": 0.14200000000000002,
+      "location": [
+        0.0,
+        0.7050000000000001,
+        0.723
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        0.49295774647887364
+      ]
+    },
+    {
+      "op": "boolean",
+      "object": "SM_Cloth",
+      "operand": "CUT_CLOTH_S0",
+      "operation": "difference",
+      "apply": true
+    },
+    {
+      "op": "boolean",
+      "object": "SM_Slate",
+      "operand": "CUT_CLOTH_S0",
+      "operation": "difference",
+      "apply": true
+    },
+    {
+      "op": "delete",
+      "object": "CUT_CLOTH_S0"
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "CUT_CLOTH_S1",
+      "size": 0.14200000000000002,
+      "location": [
+        0.0,
+        -0.7050000000000001,
+        0.723
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        0.49295774647887364
+      ]
+    },
+    {
+      "op": "boolean",
+      "object": "SM_Cloth",
+      "operand": "CUT_CLOTH_S1",
+      "operation": "difference",
+      "apply": true
+    },
+    {
+      "op": "boolean",
+      "object": "SM_Slate",
+      "operand": "CUT_CLOTH_S1",
+      "operation": "difference",
+      "apply": true
+    },
+    {
+      "op": "delete",
+      "object": "CUT_CLOTH_S1"
     },
     {
       "op": "material",
@@ -780,10 +780,10 @@
       "op": "primitive",
       "kind": "cylinder",
       "name": "CUT_RAIL_C0",
-      "size": 0.16,
+      "size": 0.162,
       "location": [
-        1.27,
-        0.635,
+        1.3180832611206852,
+        0.6830832611206853,
         0.7675000000000001
       ],
       "rotation": [
@@ -794,7 +794,7 @@
       "scale": [
         1.0,
         1.0,
-        0.5312500000000004
+        0.5246913580246918
       ]
     },
     {
@@ -812,10 +812,10 @@
       "op": "primitive",
       "kind": "cylinder",
       "name": "CUT_RAIL_S0",
-      "size": 0.164,
+      "size": 0.166,
       "location": [
         0.0,
-        0.635,
+        0.7050000000000001,
         0.7675000000000001
       ],
       "rotation": [
@@ -826,7 +826,7 @@
       "scale": [
         1.0,
         1.0,
-        0.5182926829268297
+        0.5120481927710848
       ]
     },
     {
@@ -844,10 +844,10 @@
       "op": "primitive",
       "kind": "cylinder",
       "name": "CUT_RAIL_C2",
-      "size": 0.16,
+      "size": 0.162,
       "location": [
-        -1.27,
-        0.635,
+        -1.3180832611206852,
+        0.6830832611206853,
         0.7675000000000001
       ],
       "rotation": [
@@ -858,7 +858,7 @@
       "scale": [
         1.0,
         1.0,
-        0.5312500000000004
+        0.5246913580246918
       ]
     },
     {
@@ -897,10 +897,10 @@
       "op": "primitive",
       "kind": "cylinder",
       "name": "CUT_RAIL_C1",
-      "size": 0.16,
+      "size": 0.162,
       "location": [
-        1.27,
-        -0.635,
+        1.3180832611206852,
+        -0.6830832611206853,
         0.7675000000000001
       ],
       "rotation": [
@@ -911,7 +911,7 @@
       "scale": [
         1.0,
         1.0,
-        0.5312500000000004
+        0.5246913580246918
       ]
     },
     {
@@ -929,10 +929,10 @@
       "op": "primitive",
       "kind": "cylinder",
       "name": "CUT_RAIL_S1",
-      "size": 0.164,
+      "size": 0.166,
       "location": [
         0.0,
-        -0.635,
+        -0.7050000000000001,
         0.7675000000000001
       ],
       "rotation": [
@@ -943,7 +943,7 @@
       "scale": [
         1.0,
         1.0,
-        0.5182926829268297
+        0.5120481927710848
       ]
     },
     {
@@ -961,10 +961,10 @@
       "op": "primitive",
       "kind": "cylinder",
       "name": "CUT_RAIL_C3",
-      "size": 0.16,
+      "size": 0.162,
       "location": [
-        -1.27,
-        -0.635,
+        -1.3180832611206852,
+        -0.6830832611206853,
         0.7675000000000001
       ],
       "rotation": [
@@ -975,7 +975,7 @@
       "scale": [
         1.0,
         1.0,
-        0.5312500000000004
+        0.5246913580246918
       ]
     },
     {
@@ -1014,10 +1014,10 @@
       "op": "primitive",
       "kind": "cylinder",
       "name": "CUT_RAIL_C0",
-      "size": 0.16,
+      "size": 0.162,
       "location": [
-        1.27,
-        0.635,
+        1.3180832611206852,
+        0.6830832611206853,
         0.7675000000000001
       ],
       "rotation": [
@@ -1028,7 +1028,7 @@
       "scale": [
         1.0,
         1.0,
-        0.5312500000000004
+        0.5246913580246918
       ]
     },
     {
@@ -1046,10 +1046,10 @@
       "op": "primitive",
       "kind": "cylinder",
       "name": "CUT_RAIL_C1",
-      "size": 0.16,
+      "size": 0.162,
       "location": [
-        1.27,
-        -0.635,
+        1.3180832611206852,
+        -0.6830832611206853,
         0.7675000000000001
       ],
       "rotation": [
@@ -1060,7 +1060,7 @@
       "scale": [
         1.0,
         1.0,
-        0.5312500000000004
+        0.5246913580246918
       ]
     },
     {
@@ -1099,10 +1099,10 @@
       "op": "primitive",
       "kind": "cylinder",
       "name": "CUT_RAIL_C2",
-      "size": 0.16,
+      "size": 0.162,
       "location": [
-        -1.27,
-        0.635,
+        -1.3180832611206852,
+        0.6830832611206853,
         0.7675000000000001
       ],
       "rotation": [
@@ -1113,7 +1113,7 @@
       "scale": [
         1.0,
         1.0,
-        0.5312500000000004
+        0.5246913580246918
       ]
     },
     {
@@ -1131,10 +1131,10 @@
       "op": "primitive",
       "kind": "cylinder",
       "name": "CUT_RAIL_C3",
-      "size": 0.16,
+      "size": 0.162,
       "location": [
-        -1.27,
-        -0.635,
+        -1.3180832611206852,
+        -0.6830832611206853,
         0.7675000000000001
       ],
       "rotation": [
@@ -1145,7 +1145,7 @@
       "scale": [
         1.0,
         1.0,
-        0.5312500000000004
+        0.5246913580246918
       ]
     },
     {
@@ -1202,8 +1202,8 @@
       "name": "WELL_C0",
       "size": 0.16,
       "location": [
-        1.27,
-        0.635,
+        1.3180832611206852,
+        0.6830832611206853,
         0.6925
       ],
       "rotation": [
@@ -1223,8 +1223,8 @@
       "name": "WELLCUT_C0",
       "size": 0.136,
       "location": [
-        1.27,
-        0.635,
+        1.3180832611206852,
+        0.6830832611206853,
         0.7100000000000001
       ],
       "rotation": [
@@ -1255,13 +1255,13 @@
       "name": "CUT_WELLTOP_C0",
       "size": 1.0,
       "location": [
-        1.1229217895131982,
-        0.4879217895131981,
+        1.212017243942703,
+        0.5770172439427032,
         0.778
       ],
       "scale": [
         0.3,
-        0.11800000000000001,
+        0.17,
         0.06400000000000006
       ],
       "rotation": [
@@ -1287,8 +1287,8 @@
       "name": "WELL_C1",
       "size": 0.16,
       "location": [
-        1.27,
-        -0.635,
+        1.3180832611206852,
+        -0.6830832611206853,
         0.6925
       ],
       "rotation": [
@@ -1308,8 +1308,8 @@
       "name": "WELLCUT_C1",
       "size": 0.136,
       "location": [
-        1.27,
-        -0.635,
+        1.3180832611206852,
+        -0.6830832611206853,
         0.7100000000000001
       ],
       "rotation": [
@@ -1340,13 +1340,13 @@
       "name": "CUT_WELLTOP_C1",
       "size": 1.0,
       "location": [
-        1.1229217895131982,
-        -0.4879217895131981,
+        1.212017243942703,
+        -0.5770172439427032,
         0.778
       ],
       "scale": [
         0.3,
-        0.11800000000000001,
+        0.17,
         0.06400000000000006
       ],
       "rotation": [
@@ -1372,8 +1372,8 @@
       "name": "WELL_C2",
       "size": 0.16,
       "location": [
-        -1.27,
-        0.635,
+        -1.3180832611206852,
+        0.6830832611206853,
         0.6925
       ],
       "rotation": [
@@ -1393,8 +1393,8 @@
       "name": "WELLCUT_C2",
       "size": 0.136,
       "location": [
-        -1.27,
-        0.635,
+        -1.3180832611206852,
+        0.6830832611206853,
         0.7100000000000001
       ],
       "rotation": [
@@ -1425,13 +1425,13 @@
       "name": "CUT_WELLTOP_C2",
       "size": 1.0,
       "location": [
-        -1.1229217895131982,
-        0.4879217895131981,
+        -1.212017243942703,
+        0.5770172439427032,
         0.778
       ],
       "scale": [
         0.3,
-        0.11800000000000001,
+        0.17,
         0.06400000000000006
       ],
       "rotation": [
@@ -1457,8 +1457,8 @@
       "name": "WELL_C3",
       "size": 0.16,
       "location": [
-        -1.27,
-        -0.635,
+        -1.3180832611206852,
+        -0.6830832611206853,
         0.6925
       ],
       "rotation": [
@@ -1478,8 +1478,8 @@
       "name": "WELLCUT_C3",
       "size": 0.136,
       "location": [
-        -1.27,
-        -0.635,
+        -1.3180832611206852,
+        -0.6830832611206853,
         0.7100000000000001
       ],
       "rotation": [
@@ -1510,13 +1510,13 @@
       "name": "CUT_WELLTOP_C3",
       "size": 1.0,
       "location": [
-        -1.1229217895131982,
-        -0.4879217895131981,
+        -1.212017243942703,
+        -0.5770172439427032,
         0.778
       ],
       "scale": [
         0.3,
-        0.11800000000000001,
+        0.17,
         0.06400000000000006
       ],
       "rotation": [
@@ -1543,7 +1543,7 @@
       "size": 0.164,
       "location": [
         0.0,
-        0.635,
+        0.7050000000000001,
         0.6925
       ],
       "rotation": [
@@ -1564,7 +1564,7 @@
       "size": 0.14,
       "location": [
         0.0,
-        0.635,
+        0.7050000000000001,
         0.7100000000000001
       ],
       "rotation": [
@@ -1596,7 +1596,7 @@
       "size": 1.0,
       "location": [
         0.0,
-        0.485,
+        0.555,
         0.778
       ],
       "scale": [
@@ -1628,7 +1628,7 @@
       "size": 0.164,
       "location": [
         0.0,
-        -0.635,
+        -0.7050000000000001,
         0.6925
       ],
       "rotation": [
@@ -1649,7 +1649,7 @@
       "size": 0.14,
       "location": [
         0.0,
-        -0.635,
+        -0.7050000000000001,
         0.7100000000000001
       ],
       "rotation": [
@@ -1681,7 +1681,7 @@
       "size": 1.0,
       "location": [
         0.0,
-        -0.485,
+        -0.555,
         0.778
       ],
       "scale": [
@@ -1758,8 +1758,8 @@
       "name": "CUT_APRON_C0",
       "size": 0.164,
       "location": [
-        1.27,
-        0.635,
+        1.3180832611206852,
+        0.6830832611206853,
         0.667
       ],
       "rotation": [
@@ -1790,8 +1790,8 @@
       "name": "CUT_APRON_C1",
       "size": 0.164,
       "location": [
-        1.27,
-        -0.635,
+        1.3180832611206852,
+        -0.6830832611206853,
         0.667
       ],
       "rotation": [
@@ -1822,8 +1822,8 @@
       "name": "CUT_APRON_C2",
       "size": 0.164,
       "location": [
-        -1.27,
-        0.635,
+        -1.3180832611206852,
+        0.6830832611206853,
         0.667
       ],
       "rotation": [
@@ -1854,8 +1854,8 @@
       "name": "CUT_APRON_C3",
       "size": 0.164,
       "location": [
-        -1.27,
-        -0.635,
+        -1.3180832611206852,
+        -0.6830832611206853,
         0.667
       ],
       "rotation": [
@@ -1887,7 +1887,7 @@
       "size": 0.168,
       "location": [
         0.0,
-        0.635,
+        0.7050000000000001,
         0.667
       ],
       "rotation": [
@@ -1919,7 +1919,7 @@
       "size": 0.168,
       "location": [
         0.0,
-        -0.635,
+        -0.7050000000000001,
         0.667
       ],
       "rotation": [

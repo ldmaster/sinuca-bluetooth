@@ -9,10 +9,10 @@ alta tesselação com texturas procedurais de número e listra. O jogo é
 Kotlin + OpenGL ES 3.0, sem engine externa.
 
 A mesa segue as medidas reais de uma mesa de torneio de 9 pés (área de jogo
-2,54 × 1,27 m, bolas de 57,15 mm, bocas de 116/127 mm). As caçapas ficam
-**atrás da linha da boca**, com copo revestido e a madeira contornando a
-abertura; o pano só é recortado depois da linha, então o verde nunca é
-invadido. As medidas, fontes e a correspondência com a física estão em
+2,54 × 1,27 m, bolas de 57,15 mm, bocas de 116/127 mm). As caçapas são
+**círculos completos tangentes à linha da boca**, com copo revestido e a
+madeira contornando a abertura; o pano é recortado no círculo, então o verde
+não é invadido e o buraco não fica pela metade. As medidas, fontes e a correspondência com a física estão em
 [`docs/table-spec.md`](docs/table-spec.md); o relatório do laboratório de física
 fica em [`docs/physics-report.md`](docs/physics-report.md).
 
@@ -26,7 +26,8 @@ Vistas extras: [100% de cima, com as caçapas](docs/screenshot-top.png) ·
 - Mesa de 9 pés modelada a partir de especificações WPA/BCA: área de jogo
   2,54 × 1,27 m, trilho de 195 mm, almofadas com nariz a 36 mm (63,5% da bola),
   pano de 4 mm sobre slate escuro, copo revestido e facetas de borracha nas
-  pontas das almofadas. A boca fica na linha da almofada; o buraco fica atrás,
+  pontas das almofadas. As caçapas são círculos completos tangentes à linha da
+  boca, com a metade frontal do aro rebaixada para a bola entrar; o buraco fica
   dentro da madeira. Nada ultrapassa a moldura.
 - Bolas de 64×48 segmentos com textura 768×384 de número/listra, brilho
   especular e uma luz pontual sobre a mesa para dar volume às bolas de cor
