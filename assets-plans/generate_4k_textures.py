@@ -16,11 +16,8 @@ import zlib
 
 import numpy as np
 
-SIZE = 4096
 OUT = os.path.join(os.path.dirname(__file__), "..", "app", "src", "main", "assets", "textures")
 os.makedirs(OUT, exist_ok=True)
-
-y, x = np.mgrid[0:SIZE, 0:SIZE].astype(np.float32) / SIZE
 
 
 def hash21(px, py):
@@ -71,7 +68,8 @@ def png(path, rgb):
     print(path, os.path.getsize(path) // 1024, "KB")
 
 
-def build(style):
+def build(style, size, tag):
+    y, x = np.mgrid[0:size, 0:size].astype(np.float32) / size
     xx = x * 12.0
     yy = y * 12.0
     grain = 0.5 + 0.5 * np.sin(
@@ -123,9 +121,10 @@ def build(style):
     ao = np.clip(ao, 0.0, 1.0)
     rgb = np.stack([height, rough, ao], axis=-1)
     rgb = np.clip(rgb * 255.0, 0, 255).astype(np.uint8)
-    png(os.path.join(OUT, "detail_%s.png" % style), rgb)
+    png(os.path.join(OUT, "detail_%s_%s.png" % (style, tag)), rgb)
 
 
-for name in ("scan", "wear", "clean", "procedural", "atlas"):
-    build(name)
+for tag, size in (("2k", 2048), ("1080", 1080)):
+    for name in ("scan", "wear", "clean", "procedural", "atlas"):
+        build(name, size, tag)
 print("done")

@@ -545,29 +545,15 @@ class GameRenderer(
     }
 
     private fun loadDetailTexture(): Int {
-        val name = "textures/detail_${textureStyle.key}.jpg"
+        val suffix = when (textureQuality) {
+            TextureQuality.DETAILED_1080 -> "1080"
+            TextureQuality.DETAILED_2K -> "2k"
+            else -> "4k"
+        }
+        val name = "textures/detail_${textureStyle.key}_$suffix.jpg"
         return try {
             context.assets.open(name).use { stream ->
-                val sampleSize = when (textureQuality) {
-                    TextureQuality.DETAILED_1080, TextureQuality.DETAILED_2K -> 2
-                    else -> 1
-                }
-                val options = BitmapFactory.Options().apply {
-                    inSampleSize = sampleSize
-                }
-                val decoded = BitmapFactory.decodeStream(stream, null, options) ?: return 0
-                val target = when (textureQuality) {
-                    TextureQuality.DETAILED_1080 -> 1080
-                    TextureQuality.DETAILED_2K -> 2048
-                    else -> decoded.width
-                }
-                val bitmap = if (decoded.width != target) {
-                    Bitmap.createScaledBitmap(decoded, target, target, true).also {
-                        if (it !== decoded) decoded.recycle()
-                    }
-                } else {
-                    decoded
-                }
+                val bitmap = BitmapFactory.decodeStream(stream) ?: return 0
                 val max = IntArray(1)
                 GLES30.glGetIntegerv(GLES30.GL_MAX_TEXTURE_SIZE, max, 0)
                 if (bitmap.width > max[0] || bitmap.height > max[0]) {
