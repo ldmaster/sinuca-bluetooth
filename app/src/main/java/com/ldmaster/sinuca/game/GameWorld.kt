@@ -117,7 +117,9 @@ class GameWorld(val practice: Boolean = false) {
         if (winner >= 0 || moving) return false
         val cue = balls[0]
         if (!cue.active) return false
-        val speed = 0.9 + 4.6 * power.coerceIn(0.0, 1.0)
+        val p = power.coerceIn(0.0, 1.0)
+        val speed = MIN_SHOT_SPEED + (MAX_SHOT_SPEED - MIN_SHOT_SPEED) *
+            Math.pow(p, POWER_EXPONENT)
         cue.vx = cos(angle) * speed
         cue.vz = sin(angle) * speed
         cue.spinSide = strikeX.coerceIn(-1.0, 1.0)
@@ -134,10 +136,13 @@ class GameWorld(val practice: Boolean = false) {
         val frame = dt.coerceIn(0.0, 0.05)
         if (frame <= 0.0) return
         advanceFalls(frame)
-        val topSpeed = balls.filter { it.active && !it.falling }.maxOfOrNull { it.speed } ?: 0.0
-        val substeps = ceil(topSpeed * frame / (Table.BALL_RADIUS * 0.35))
+        var topSpeed = 0.0
+        for (ball in balls) {
+            if (ball.active && !ball.falling && ball.speed > topSpeed) topSpeed = ball.speed
+        }
+        val substeps = ceil(topSpeed * frame / MAX_SUBSTEP_DISTANCE)
             .toInt()
-            .coerceIn(1, 12)
+            .coerceIn(1, MAX_SUBSTEPS)
         val h = frame / substeps
         repeat(substeps) { integrate(h) }
         if (balls.all { (!it.active || it.speed < STOP_SPEED) && !it.falling }) {
@@ -167,7 +172,10 @@ class GameWorld(val practice: Boolean = false) {
             if (!ball.active || ball.falling) continue
             val speed = ball.speed
             if (speed > 0.0) {
-                val next = max(0.0, speed - ROLL_DECELERATION * h)
+                val decel = ROLL_DECELERATION +
+                    LINEAR_DRAG * speed +
+                    QUADRATIC_DRAG * speed * speed
+                val next = max(0.0, speed - decel * h)
                 ball.vx = ball.vx / speed * next
                 ball.vz = ball.vz / speed * next
             }
@@ -184,72 +192,69 @@ class GameWorld(val practice: Boolean = false) {
             }
 
             if (pocketed(ball)) continue
-
-            val limitX = Table.HALF_LENGTH - Table.BALL_RADIUS
-            val limitZ = Table.HALF_WIDTH - Table.BALL_RADIUS
-            if (ball.x > limitX) {
-                ball.x = limitX
-                ball.vx = -ball.vx * CUSHION_RESTITUTION
-                cushionSpin(ball, vertical = true)
-            } else if (ball.x < -limitX) {
-                ball.x = -limitX
-                ball.vx = -ball.vx * CUSHION_RESTITUTION
-                cushionSpin(ball, vertical = true)
-            }
-            if (ball.z > limitZ) {
-                ball.z = limitZ
-                ball.vz = -ball.vz * CUSHION_RESTITUTION
-                cushionSpin(ball, vertical = false)
-            } else if (ball.z < -limitZ) {
-                ball.z = -limitZ
-                ball.vz = -ball.vz * CUSHION_RESTITUTION
-                cushionSpin(ball, vertical = false)
-            }
+            collideCushions(ball)
         }
         collideBalls()
     }
 
-    private fun cushionSpin(ball: Ball, vertical: Boolean) {
-        if (ball.number != 0 || kotlin.math.abs(ball.spinSide) < 0.05) return
-        if (vertical) {
-            ball.vz += ball.spinSide * kotlin.math.abs(ball.vx) * CUSHION_SPIN
-        } else {
-            ball.vx += ball.spinSide * kotlin.math.abs(ball.vz) * CUSHION_SPIN
+    private fun collideCushions(ball: Ball) {
+        val radius = Table.BALL_RADIUS
+        for (cushion in Table.CUSHIONS) {
+            val ex = cushion.x2 - cushion.x1
+            val ez = cushion.z2 - cushion.z1
+            val lengthSquared = ex * ex + ez * ez
+            var t = 0.0
+            if (lengthSquared > 1e-12) {
+                t = ((ball.x - cushion.x1) * ex + (ball.z - cushion.z1) * ez) / lengthSquared
+                t = t.coerceIn(0.0, 1.0)
+            }
+            val pointX = cushion.x1 + ex * t
+            val pointZ = cushion.z1 + ez * t
+            var dx = ball.x - pointX
+            var dz = ball.z - pointZ
+            val distanceSquared = dx * dx + dz * dz
+            if (distanceSquared >= radius * radius || distanceSquared < 1e-12) continue
+
+            val distance = kotlin.math.sqrt(distanceSquared)
+            val nx = dx / distance
+            val nz = dz / distance
+            ball.x = pointX + nx * radius
+            ball.z = pointZ + nz * radius
+
+            val normalSpeed = ball.vx * nx + ball.vz * nz
+            if (normalSpeed >= 0.0) continue
+            val tangentX = ball.vx - normalSpeed * nx
+            val tangentZ = ball.vz - normalSpeed * nz
+            ball.vx = tangentX * CUSHION_FRICTION - nx * normalSpeed * CUSHION_RESTITUTION
+            ball.vz = tangentZ * CUSHION_FRICTION - nz * normalSpeed * CUSHION_RESTITUTION
+            cushionSpin(ball, nx, nz)
         }
+    }
+
+    private fun cushionSpin(ball: Ball, nx: Double, nz: Double) {
+        if (ball.number != 0 || kotlin.math.abs(ball.spinSide) < 0.05) return
+        val tangentX = -nz
+        val tangentZ = nx
+        val component = ball.vx * tangentX + ball.vz * tangentZ
+        val kick = ball.spinSide * kotlin.math.abs(component) * CUSHION_SPIN
+        ball.vx += tangentX * kick
+        ball.vz += tangentZ * kick
         ball.spinSide *= 0.55
     }
 
     internal fun pocketed(ball: Ball): Boolean {
         for (pocket in Table.POCKETS) {
-            val dx = ball.x - pocket[0]
-            val dz = ball.z - pocket[1]
-            val distance = hypot(dx, dz)
-            if (distance < 1e-9 || distance >= Table.POCKET_MOUTH) continue
+            val dx = ball.x - pocket.x
+            val dz = ball.z - pocket.z
+            if (hypot(dx, dz) >= pocket.radius) continue
 
-            if (distance < Table.POCKET_RADIUS) {
-                ball.falling = true
-                ball.fall = 0f
-                ball.dropX = pocket[0]
-                ball.dropZ = pocket[1]
-                ball.stop()
-                pendingPotted.add(ball.number)
-                return true
-            }
-
-            if (ball.speed <= FAST_POCKET_SPEED) continue
-
-            val nx = dx / distance
-            val nz = dz / distance
-            val normalSpeed = ball.vx * nx + ball.vz * nz
-            if (normalSpeed >= 0.0) continue
-
-            ball.vx -= (1.0 + JAW_RESTITUTION) * normalSpeed * nx
-            ball.vz -= (1.0 + JAW_RESTITUTION) * normalSpeed * nz
-            ball.vx *= 0.86
-            ball.vz *= 0.86
-            ball.x = pocket[0] + nx * (Table.POCKET_MOUTH + 0.0015)
-            ball.z = pocket[1] + nz * (Table.POCKET_MOUTH + 0.0015)
-            return false
+            ball.falling = true
+            ball.fall = 0f
+            ball.dropX = pocket.x
+            ball.dropZ = pocket.z
+            ball.stop()
+            pendingPotted.add(ball.number)
+            return true
         }
         return false
     }
@@ -275,6 +280,13 @@ class GameWorld(val practice: Boolean = false) {
                 b.x += nx * overlap * 0.5
                 b.z += nz * overlap * 0.5
 
+                val cue = when {
+                    a.number == 0 -> a
+                    b.number == 0 -> b
+                    else -> null
+                }
+                val cueSpeedBefore = cue?.speed ?: 0.0
+
                 val relative = (b.vx - a.vx) * nx + (b.vz - a.vz) * nz
                 if (relative < 0.0) {
                     val impulse = -(1.0 + BALL_RESTITUTION) * relative / 2.0
@@ -284,14 +296,10 @@ class GameWorld(val practice: Boolean = false) {
                     b.vz += nz * impulse
                 }
 
-                val cue = when {
-                    a.number == 0 -> a
-                    b.number == 0 -> b
-                    else -> null
-                }
                 if (cue != null && cue.spinForward != 0.0) {
-                    cue.vx += cue.shotDirX * cue.spinForward * DRAW_FOLLOW_IMPULSE
-                    cue.vz += cue.shotDirZ * cue.spinForward * DRAW_FOLLOW_IMPULSE
+                    val gain = cueSpeedBefore * DRAW_FOLLOW_GAIN * cue.spinForward
+                    cue.vx += cue.shotDirX * gain
+                    cue.vz += cue.shotDirZ * gain
                     cue.spinForward = 0.0
                 }
             }
@@ -410,15 +418,25 @@ class GameWorld(val practice: Boolean = false) {
     }
 
     companion object {
-        private const val ROLL_DECELERATION = 0.32
-        private const val CUSHION_RESTITUTION = 0.72
+        private const val MIN_SHOT_SPEED = 0.10
+        private const val MAX_SHOT_SPEED = 6.20
+        private const val POWER_EXPONENT = 0.80
+
+        private const val ROLL_DECELERATION = 0.50
+        private const val LINEAR_DRAG = 0.18
+        private const val QUADRATIC_DRAG = 0.008
+
+        private const val CUSHION_RESTITUTION = 0.88
+        private const val CUSHION_FRICTION = 0.99
         private const val BALL_RESTITUTION = 0.96
-        private const val STOP_SPEED = 0.012
+        private const val STOP_SPEED = 0.008
         private const val FALL_DURATION = 0.45
-        private const val FAST_POCKET_SPEED = 4.0
-        private const val JAW_RESTITUTION = 0.5
+
         private const val SIDE_SPIN_CURVE = 0.38
         private const val CUSHION_SPIN = 0.38
-        private const val DRAW_FOLLOW_IMPULSE = 1.05
+        private const val DRAW_FOLLOW_GAIN = 0.80
+
+        private const val MAX_SUBSTEP_DISTANCE = 0.00045
+        private const val MAX_SUBSTEPS = 512
     }
 }

@@ -61,18 +61,16 @@ class SpinAndPocketTest {
     }
 
     @Test
-    fun `fast grazing ball rattles instead of dropping`() {
+    fun `a ball outside the pocket radius is not captured`() {
         val world = GameWorld()
         val ball = world.balls[1]
         ball.active = true
-        ball.x = 1.27 + 0.062
+        ball.x = 1.27 + 0.080
         ball.z = 0.635
         ball.vx = -4.5
-        ball.vz = 0.0
         val potted = world.pocketed(ball)
         assertFalse(potted)
         assertFalse(ball.falling)
-        assertTrue(ball.vx > 0.0)
     }
 
     @Test

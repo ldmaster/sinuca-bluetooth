@@ -8,29 +8,41 @@ gerados no **Blender** com o harness `blender-forge`; as bolas usam esferas de
 alta tesselação com texturas procedurais de número e listra. O jogo é
 Kotlin + OpenGL ES 3.0, sem engine externa.
 
+A mesa segue as medidas reais de uma mesa de torneio de 9 pés (área de jogo
+2,54 × 1,27 m, bolas de 57,15 mm, bocas de 116/127 mm). As caçapas são copos
+usinados **dentro** do trilho, com a madeira contornando cada boca. As medidas,
+fontes e a correspondência com a física estão em
+[`docs/table-spec.md`](docs/table-spec.md); o relatório do laboratório de física
+fica em [`docs/physics-report.md`](docs/physics-report.md).
+
 ![Mesa e HUD](docs/screenshot.png)
 
-Vistas extras: [de cima, com as redes](docs/screenshot-top.png) ·
+Vistas extras: [de cima, com as caçapas](docs/screenshot-top.png) ·
 [trajetória prevista](docs/screenshot-trajectory.png).
 
 ## O que está implementado
 
-- Mesa de alta definição com caçapas reais: furos na mesa e no apron, poços
-  cilíndricos, redes no fundo, aros escuros, almofadas e trilhos largos com
-  chanfro. Proporção 2:1 e trilhos grossos, seguindo a mesa de referência.
+- Mesa de 9 pés modelada a partir de especificações WPA/BCA: área de jogo
+  2,54 × 1,27 m, trilho de 195 mm, almofadas com nariz a 36 mm (63,5% da bola)
+  e caçapas com copo, aro metálico e a madeira contornando a boca. Nada
+  ultrapassa a moldura.
 - Bolas de 48×32 segmentos com textura de número/listra: cores definidas, bolas
   lisas e listradas, 8 e branca.
-- Física própria: atrito, colisões, quiques, queda gradual na caçapa e
-  **quinas de caçapa**. A captura é calibrada ao diâmetro visível do buraco;
-  só bolas realmente rápidas (acima de 4 m/s) raspando a borda quicam na boca.
+- Física própria calibrada contra a mesa real: atrito de rolamento + arrasto,
+  subpassos de 0,45 mm, colisão por cápsula nas almofadas (mandíbulas
+  arredondadas), restituição 0,88 nas tabelas e direção da bola-alvo igual à
+  bola fantasma com erro máximo de 0,26°. A força é progressiva: 3% move
+  ~20 cm, 10% ~0,9 m, 50% ~5,4 m e 100% sai a 6,2 m/s.
 - **Efeito (english)**: selecione o ponto de acerto na bola branca. Parte baixa
   faz a branca voltar (draw), parte alta segue em frente (follow), laterais
   curvam a trajetória e alteram o quique nas tabelas.
 - Indicador em tempo real da bola na mira: anel fantasma no ponto de contato,
   destaque na bola-alvo e seta com a direção que ela vai tomar. A seta usa a
-  normal do contato real (bola fantasma), então cortar a quina muda a direção.
+  normal do contato real (bola fantasma); o laboratório garante que a direção
+  simulada coincide com a prevista.
 - Trajetória completa opcional: simula a tacada com a força, ângulo e efeito
-  atuais e desenha o caminho da branca e da primeira bola atingida.
+  atuais (incluindo tabelas e caçapas) e desenha o caminho da branca e da
+  primeira bola atingida.
 - Mira por arrasto relativo, sem salto para onde o dedo tocou.
 - Barra de força vertical discreta, botão de tacada pequeno e HUD sem painéis:
   bolas encaçapadas, vez, ícones de câmera/trajetória/sair e efeito ficam nos
@@ -86,8 +98,8 @@ Controles (paisagem, tudo nos cantos):
 - Encaçapar uma bola do próprio grupo mantém a vez; não encaçapar nada passa a vez.
 - Branca na caçapa: falta, a vez passa e a branca volta ao ponto inicial.
 - A 8 antes de limpar o grupo elimina o jogador; após limpar o grupo, vence.
-- O efeito é uma aproximação jogável (não é um modelo físico completo de tacada);
-  não há bola na mão livre nem regra completa de tacada de saída.
+- O efeito (english) é uma aproximação jogável; não há bola na mão livre nem
+  regra completa de tacada de saída.
 
 ## Arquitetura
 
@@ -96,7 +108,7 @@ app/src/main/java/com/ldmaster/sinuca/
 ├── MainActivity.kt          menu, permissões, descoberta e conexão Bluetooth
 ├── GameActivity.kt          ciclo do jogo, sincronização e entrada
 ├── game/
-│   ├── Table.kt             dimensões, caçapas e pontos fixos (metros)
+│   ├── Table.kt             dimensões, caçapas e segmentos de almofada (m)
 │   ├── Ball.kt              estado, efeito e matriz visual de rolamento
 │   └── GameWorld.kt         física, regras, previsão e snapshots
 ├── net/
@@ -117,16 +129,25 @@ O protocolo usa uma linha JSON por mensagem (`hello`, `start`, `state`, `shot`,
 
 ## Assets 3D (Blender via forge)
 
-Os planos ficam em `assets-plans/table.json` e `assets-plans/cue.json` e usam apenas
-operações tipadas do harness (sem scripts `bpy`). A mesa é construída com
-booleanos (furos da mesa e do apron), poços, redes, aros escuros, almofadas,
-trilhos largos com chanfro e proporção 2:1. Para regerar:
+A mesa é gerada deterministicamente por `assets-plans/generate_table.py`, que
+emite `assets-plans/table.json` (operações tipadas do harness, sem scripts
+`bpy`). Nada é improvisado: as cotas vêm de `docs/table-spec.md`. O plano recorta
+as caçapas em cada trilho antes de juntá-los, cunha copos e aros dentro da
+madeira e mantém todas as superfícies sem sobreposição coplanar. Para regerar:
 
 ```bash
-forge apply assets-plans/table.json --profile prop --brief "high detail billiards table with real pockets and nets"
+python3 assets-plans/generate_table.py
+forge apply assets-plans/table.json --profile prop --brief "regulation 9ft table"
 forge apply assets-plans/cue.json   --profile prop --brief "low-poly pool cue"
 cp var/runs/<run>/blender/artifacts/table.glb app/src/main/assets/models/table.glb
 cp var/runs/<run>/blender/artifacts/cue.glb   app/src/main/assets/models/cue.glb
+```
+
+O script também pode ser validado sem abrir o Blender:
+
+```bash
+/Users/lucasdavi/IA/blender-forge/.venv/bin/python -c \
+  "import json;from blender_forge.ops import parse_plan;parse_plan(json.load(open('assets-plans/table.json')))"
 ```
 
 Cada execução grava `.blend`, previews PNG e GLB em `var/runs/<id>/blender/`.
@@ -141,16 +162,29 @@ texturas OpenGL, sem depender de Filament/Sceneform.
 ```
 
 Cobrem colisão frontal, quique na tabela, queda em caçapa (incluindo a animação),
-quinas de caçapa, geometria de mira (centro x quina), draw/follow/english,
-atrito, regras de vez, 8-ball, sincronização host/cliente e ida/volta do
-protocolo (30 testes).
+mandíbulas, geometria de mira (centro x quina), draw/follow/english, atrito,
+regras de vez, 8-ball, sincronização host/cliente e ida/volta do protocolo
+(31 testes).
+
+O `PhysicsLabTest` é o portão de física: mede o erro de direção contra a bola
+fantasma, a distância de rolagem por porcentagem de força, o ângulo de quique,
+a largura de aceitação das caçapas, rejeição pelas mandíbulas, tunneling e
+sobreposição de bolas. O relatório fica em
+[`docs/physics-report.md`](docs/physics-report.md).
+
+O portão completo, que também joga no emulador/aparelho e grava os frames:
+
+```bash
+./scripts/release-gate.sh            # laboratório + APK + playtest
+./scripts/release-gate.sh --lab-only # só o laboratório
+```
 
 ## Limitações conhecidas
 
-- Bluetooth não funciona no emulador; o multiplayer só pode ser validado em dois
-  aparelhos reais.
+- Bluetooth não funciona no emulador; a física e a mesa são validadas nele, mas
+  o multiplayer só em dois aparelhos reais.
 - Sem áudio, sem revanche automática e sem seleção de grupos na primeira bola.
 - O cliente prevê a física localmente e é corrigido pelo host; em Bluetooth muito
   instável pode haver pequenos saltos.
-- O efeito e as quinas de caçapa são modelos simplificados, calibrados para a
-  jogabilidade.
+- O efeito (english) é uma aproximação jogável, não um modelo completo de
+  spin/rolamento.

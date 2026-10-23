@@ -310,10 +310,10 @@ class GameRenderer(
             simulatePrediction()
         }
         if (cuePath.isNotEmpty()) {
-            drawLineVertices(cuePath, 1f, 1f, 1f, 0.28f, 2f, GLES30.GL_LINE_STRIP)
+            drawLineVertices(cuePath, 1f, 1f, 1f, 0.45f, 2f, GLES30.GL_LINE_STRIP)
         }
         if (targetPath.isNotEmpty()) {
-            drawLineVertices(targetPath, 0.45f, 0.95f, 0.85f, 0.55f, 2.5f, GLES30.GL_LINE_STRIP)
+            drawLineVertices(targetPath, 0.45f, 0.95f, 0.85f, 0.70f, 2.5f, GLES30.GL_LINE_STRIP)
         }
     }
 
@@ -798,7 +798,9 @@ void main() {
     vec3 v = normalize(uEye - vWorld);
     vec3 h = normalize(l + v);
     float diffuse = max(dot(n, l), 0.0);
-    float specular = pow(max(dot(n, h), 0.0), 56.0) * 0.35;
+    float luminance = dot(base, vec3(0.2126, 0.7152, 0.0722));
+    float gloss = clamp(luminance * 5.0, 0.0, 1.0);
+    float specular = pow(max(dot(n, h), 0.0), 56.0) * 0.35 * mix(0.04, 1.0, gloss);
     vec3 lit = base * (0.42 + 0.78 * diffuse) + vec3(specular);
     fragColor = vec4(pow(clamp(lit, 0.0, 1.0), vec3(1.0 / 2.2)), 1.0);
 }
