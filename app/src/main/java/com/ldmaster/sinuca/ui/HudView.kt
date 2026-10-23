@@ -64,6 +64,23 @@ class HudView(
 
     private var gesture = GESTURE_NONE
     private var lastTouchX = 0f
+    private var nudgeLeftX = 0f
+    private var nudgeLeftY = 0f
+    private var nudgeRightX = 0f
+    private var nudgeRightY = 0f
+    private var nudgeRadius = 0f
+    private var nudgeDirection = 0f
+
+    private val density: Float
+        get() = resources.displayMetrics.density
+
+    private val nudgeRepeat = object : Runnable {
+        override fun run() {
+            if (nudgeDirection == 0f) return
+            if (provider().canShoot) actions.onAimDelta(nudgeDirection * NUDGE_DP)
+            postDelayed(this, 55L)
+        }
+    }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
@@ -83,6 +100,7 @@ class HudView(
             drawPower(canvas, w, h)
             drawShoot(canvas, state, w, h)
             drawSpin(canvas, w, h)
+            drawAimNudge(canvas, state, w, h)
         }
         postInvalidateOnAnimation()
     }
@@ -136,8 +154,11 @@ class HudView(
 
     private fun drawStatus(canvas: Canvas, state: HudState, w: Float) {
         val status = when {
+            state.aiThinking -> "IA PENSANDO · ${state.aiLevel.uppercase()}"
             state.moving -> "BOLAS EM MOVIMENTO"
             state.practice -> "VEZ DO JOGADOR ${state.turn + 1}"
+            state.aiLevel.isNotEmpty() && !state.canShoot ->
+                "VEZ DA IA · ${state.aiLevel.uppercase()}"
             state.canShoot -> "SUA VEZ"
             else -> "VEZ DO ADVERSÁRIO"
         }
@@ -162,6 +183,53 @@ class HudView(
             textPaint.color = Color.parseColor("#B3C7D2DE")
             canvas.drawText(state.message, w / 2f, dp(41f), textPaint)
         }
+        if (state.canShoot && !state.moving && state.winner < 0) {
+            textPaint.textSize = dp(8.5f)
+            textPaint.color = Color.parseColor("#99C7D2DE")
+            canvas.drawText("MIRA ${state.aimAngle.toInt()}°", w / 2f, dp(55f), textPaint)
+        }
+    }
+
+    private fun drawAimNudge(canvas: Canvas, state: HudState, w: Float, h: Float) {
+        nudgeRadius = dp(15f)
+        nudgeLeftX = w / 2f - dp(48f)
+        nudgeRightX = w / 2f + dp(48f)
+        nudgeLeftY = h - dp(27f)
+        nudgeRightY = nudgeLeftY
+        val enabled = state.canShoot
+        fill.color = Color.parseColor(if (enabled) "#66000000" else "#2A000000")
+        canvas.drawCircle(nudgeLeftX, nudgeLeftY, nudgeRadius, fill)
+        canvas.drawCircle(nudgeRightX, nudgeRightY, nudgeRadius, fill)
+        stroke.color = Color.parseColor(if (enabled) "#CCFFFFFF" else "#44FFFFFF")
+        stroke.strokeWidth = dp(1.7f)
+        canvas.drawLine(
+            nudgeLeftX + dp(3f), nudgeLeftY - dp(5f),
+            nudgeLeftX - dp(3f), nudgeLeftY, stroke
+        )
+        canvas.drawLine(
+            nudgeLeftX - dp(3f), nudgeLeftY,
+            nudgeLeftX + dp(3f), nudgeLeftY + dp(5f), stroke
+        )
+        canvas.drawLine(
+            nudgeRightX - dp(3f), nudgeRightY - dp(5f),
+            nudgeRightX + dp(3f), nudgeRightY, stroke
+        )
+        canvas.drawLine(
+            nudgeRightX + dp(3f), nudgeRightY,
+            nudgeRightX - dp(3f), nudgeRightY + dp(5f), stroke
+        )
+    }
+
+    private fun startNudge(direction: Float) {
+        nudgeDirection = direction
+        actions.onAimDelta(direction * NUDGE_DP)
+        removeCallbacks(nudgeRepeat)
+        postDelayed(nudgeRepeat, 70L)
+    }
+
+    private fun stopNudge() {
+        nudgeDirection = 0f
+        removeCallbacks(nudgeRepeat)
     }
 
     private fun drawCorners(canvas: Canvas, state: HudState, w: Float) {
@@ -363,6 +431,7 @@ class HudView(
 
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                stopNudge()
                 if (near(x, y, trajectoryCenterX, trajectoryCenterY, dp(18f))) {
                     trajectoryEnabled = !trajectoryEnabled
                     actions.onTrajectoryToggle(trajectoryEnabled)
@@ -379,6 +448,14 @@ class HudView(
                 }
                 if (!state.started) return true
 
+                if (near(x, y, nudgeLeftX, nudgeLeftY, dp(20f))) {
+                    if (state.canShoot) startNudge(-1f)
+                    return true
+                }
+                if (near(x, y, nudgeRightX, nudgeRightY, dp(20f))) {
+                    if (state.canShoot) startNudge(1f)
+                    return true
+                }
                 if (hypot(x - shootRect.centerX(), y - shootRect.centerY()) <= shootRect.width() / 2f) {
                     if (state.canShoot) actions.onShoot()
                     return true
@@ -403,7 +480,7 @@ class HudView(
                     GESTURE_AIM -> {
                         val delta = x - lastTouchX
                         lastTouchX = x
-                        if (abs(delta) > 0.01f) actions.onAimDelta(delta)
+                        if (abs(delta) > 0.01f) actions.onAimDelta(delta / density)
                     }
                     GESTURE_POWER -> updatePower(y)
                     GESTURE_SPIN -> updateSpin(x, y)
@@ -411,6 +488,7 @@ class HudView(
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 gesture = GESTURE_NONE
+                stopNudge()
             }
         }
         return true
@@ -452,6 +530,7 @@ class HudView(
     private fun dp(value: Float): Float = value * resources.displayMetrics.density
 
     companion object {
+        private const val NUDGE_DP = 1.1f
         private const val GESTURE_NONE = 0
         private const val GESTURE_AIM = 1
         private const val GESTURE_POWER = 2

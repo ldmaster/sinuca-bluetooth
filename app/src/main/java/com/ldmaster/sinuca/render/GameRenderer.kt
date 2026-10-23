@@ -440,8 +440,8 @@ class GameRenderer(
         if (useTexture) GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
     }
 
-    fun rotateAim(deltaPixels: Float) {
-        synchronized(world) { world.aimAngle += deltaPixels * AIM_SENSITIVITY }
+    fun rotateAim(deltaDp: Float) {
+        synchronized(world) { world.aimAngle += deltaDp * AIM_SENSITIVITY_DP }
     }
 
     fun release() {
@@ -722,7 +722,7 @@ class GameRenderer(
 
     companion object {
         private const val TAG = "GameRenderer"
-        private const val AIM_SENSITIVITY = 0.0018f
+        private const val AIM_SENSITIVITY_DP = 0.0032f
 
         private val IDENTITY = floatArrayOf(
             1f, 0f, 0f, 0f,

@@ -3,6 +3,7 @@ package com.ldmaster.sinuca
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.AlertDialog
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.content.BroadcastReceiver
@@ -22,6 +23,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import com.ldmaster.sinuca.game.AiLevel
 import com.ldmaster.sinuca.net.BluetoothGame
 import com.ldmaster.sinuca.net.NetMessage
 import com.ldmaster.sinuca.net.Session
@@ -133,6 +135,7 @@ class MainActivity : Activity() {
 
         column.addView(button("Criar partida (host)", "#1F6F4A") { hostGame() })
         column.addView(button("Entrar em partida", "#1B4F72") { joinGame() })
+        column.addView(button("Jogar contra IA", "#2C5F8A") { chooseAiLevel() })
         column.addView(button("Treino local", "#3B3B4A") { practice() })
 
         status = text("Pronto.", 14f, "#C7D2DE").apply {
@@ -205,6 +208,30 @@ class MainActivity : Activity() {
                 status.text = if (started) "Procurando aparelhos Bluetooth…" else "Mostrando aparelhos pareados."
             }
         }
+    }
+
+    private fun chooseAiLevel() {
+        val levels = AiLevel.entries.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("Dificuldade da IA")
+            .setItems(levels.map { it.label }.toTypedArray()) { _, which ->
+                aiGame(levels[which])
+            }
+            .show()
+    }
+
+    private fun aiGame(level: AiLevel) {
+        service?.close()
+        service = null
+        Session.service = null
+        Session.role = "ai"
+        connectingAsHost = false
+        startActivity(
+            Intent(this, GameActivity::class.java)
+                .putExtra("player", 0)
+                .putExtra("ai", true)
+                .putExtra("aiLevel", level.ordinal)
+        )
     }
 
     private fun practice() {

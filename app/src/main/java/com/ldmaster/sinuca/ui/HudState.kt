@@ -11,5 +11,8 @@ data class HudState(
     val message: String,
     val started: Boolean,
     val canShoot: Boolean,
-    val cameraMode: Int
+    val cameraMode: Int,
+    val aimAngle: Float = 0f,
+    val aiThinking: Boolean = false,
+    val aiLevel: String = ""
 )

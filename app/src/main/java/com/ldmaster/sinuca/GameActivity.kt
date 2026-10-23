@@ -10,6 +10,8 @@ import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.Toast
+import com.ldmaster.sinuca.game.AiLevel
+import com.ldmaster.sinuca.game.AiPlayer
 import com.ldmaster.sinuca.game.GameWorld
 import com.ldmaster.sinuca.net.NetMessage
 import com.ldmaster.sinuca.net.Session
@@ -28,18 +30,25 @@ class GameActivity : Activity() {
 
     private var localPlayer = 0
     private var practice = false
+    private var ai = false
+    private var aiLevel = AiLevel.MEDIUM
+    private var aiPlayer: AiPlayer? = null
     private var started = true
     private var lastSent = ""
     private var closed = false
 
     private val sync = object : Runnable {
         override fun run() {
-            val service = Session.service
-            if (service != null && started && localPlayer == 0) {
-                val encoded = Wire.state(world.snapshot())
-                if (encoded != lastSent) {
-                    lastSent = encoded
-                    service.send(encoded)
+            if (ai) {
+                aiPlayer?.tick()
+            } else {
+                val service = Session.service
+                if (service != null && started && localPlayer == 0) {
+                    val encoded = Wire.state(world.snapshot())
+                    if (encoded != lastSent) {
+                        lastSent = encoded
+                        service.send(encoded)
+                    }
                 }
             }
             handler.postDelayed(this, 60)
@@ -88,8 +97,12 @@ class GameActivity : Activity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         hideSystemBars()
 
-        practice = intent.getIntExtra("player", 0) == -1
-        localPlayer = if (practice) -1 else intent.getIntExtra("player", 0)
+        ai = intent.getBooleanExtra("ai", false)
+        aiLevel = AiLevel.entries.getOrElse(
+            intent.getIntExtra("aiLevel", AiLevel.MEDIUM.ordinal)
+        ) { AiLevel.MEDIUM }
+        practice = !ai && intent.getIntExtra("player", 0) == -1
+        localPlayer = if (practice) -1 else if (ai) 0 else intent.getIntExtra("player", 0)
         world = GameWorld(practice)
 
         renderer = GameRenderer(applicationContext, world, mirrored = localPlayer == 1)
@@ -130,8 +143,17 @@ class GameActivity : Activity() {
         root.addView(hud, FrameLayout.LayoutParams(MATCH, MATCH))
         setContentView(root)
 
+        if (ai) {
+            started = true
+            aiPlayer = AiPlayer(world, 1, aiLevel) { shot ->
+                surface.queueEvent {
+                    world.shoot(shot.angle, shot.power, 0.0, 0.0)
+                }
+            }
+        }
+
         val service = Session.service
-        if (!practice) {
+        if (!practice && !ai) {
             started = false
             if (service == null) {
                 Toast.makeText(this, "Conexão Bluetooth não encontrada.", Toast.LENGTH_LONG).show()
@@ -183,7 +205,10 @@ class GameActivity : Activity() {
             message = snapshot.message,
             started = started,
             canShoot = started && world.canShoot(localPlayer),
-            cameraMode = renderer.cameraMode
+            cameraMode = renderer.cameraMode,
+            aimAngle = ((Math.toDegrees(world.aimAngle) % 360.0 + 360.0) % 360.0).toFloat(),
+            aiThinking = aiPlayer?.thinking == true,
+            aiLevel = if (ai) aiLevel.label else ""
         )
     }
 
@@ -215,6 +240,7 @@ class GameActivity : Activity() {
     override fun onDestroy() {
         super.onDestroy()
         renderer.release()
+        aiPlayer?.release()
         handler.removeCallbacks(sync)
         if (!closed) {
             Session.service?.let {

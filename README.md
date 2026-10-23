@@ -19,7 +19,8 @@ fica em [`docs/physics-report.md`](docs/physics-report.md).
 ![Mesa e HUD](docs/screenshot.png)
 
 Vistas extras: [100% de cima, com as caçapas](docs/screenshot-top.png) ·
-[trajetória prevista](docs/screenshot-trajectory.png).
+[trajetória prevista](docs/screenshot-trajectory.png) ·
+[IA pensando no nível Médio](docs/screenshot-ai.png).
 
 ## O que está implementado
 
@@ -60,6 +61,12 @@ Vistas extras: [100% de cima, com as caçapas](docs/screenshot-top.png) ·
 - Fluxo Bluetooth: criar partida (visível por 5 min) ou entrar em partida
   (aparelhos pareados + descoberta).
 - Modo **Treino local** para jogar sozinho e testar tudo sem Bluetooth.
+- Modo **Jogar contra IA**, 100% local e offline, com níveis **Fácil**,
+  **Médio** e **Difícil**. O agente escolhe a bola e a caçapa, filtra os
+  caminhos livres, simula as melhores tacadas com a física do jogo e escolhe a
+  que encaçapa/defende melhor; o nível controla a busca, o erro de mira e a
+  chance de escolher uma tacada pior. A decisão roda em thread própria,
+  mostrando **IA PENSANDO** no HUD.
 
 ## Requisitos
 
@@ -96,15 +103,18 @@ tag `v*`. A chave é estável, então as próximas versões atualizam por cima.
 
 ## Como jogar
 
-1. Pareie os dois celulares no Android.
-2. **Host:** toque em *Criar partida* e aceite ficar visível.
-3. **Visitante:** toque em *Entrar em partida* e selecione o outro aparelho.
-4. Quando a mesa aparecer, o jogador 1 dá a primeira tacada.
+1. Para jogar sozinho contra a IA, escolha *Jogar contra IA* e o nível; o
+   jogador 1 (você) dá a primeira tacada.
+2. Para dois aparelhos, pareie os dois celulares no Android.
+3. **Host:** toque em *Criar partida* e aceite ficar visível.
+4. **Visitante:** toque em *Entrar em partida* e selecione o outro aparelho.
+5. Quando a mesa aparecer, o jogador 1 dá a primeira tacada.
 
 Controles (paisagem, tudo nos cantos):
 
-- **Mira:** arraste sobre a mesa. O movimento é relativo: continue arrastando em
-  qualquer lugar para girar mais.
+- **Mira:** arraste sobre a mesa. O movimento é relativo e proporcional ao
+  arrasto em dp; use os botões **‹ ›** no centro inferior para ajuste fino
+  (toque ou segure). O ângulo atual aparece como **MIRA nn°** no topo.
 - **Força:** arraste a barra vertical fina na borda direita (para cima aumenta).
 - **Efeito:** toque na bolinha **EFEITO** no canto inferior esquerdo; o ponto
   vermelho indica onde a tacada acerta a branca.
@@ -189,7 +199,7 @@ texturas OpenGL, sem depender de Filament/Sceneform.
 Cobrem colisão frontal, quique na tabela, queda em caçapa (incluindo a animação),
 mandíbulas, geometria de mira (centro x quina), draw/follow/english, atrito,
 regras de vez, 8-ball, sincronização host/cliente e ida/volta do protocolo
-(31 testes).
+(34 testes).
 
 O `PhysicsLabTest` é o portão de física: mede o erro de direção contra a bola
 fantasma, a distância de rolagem por porcentagem de força, o ângulo de quique,
