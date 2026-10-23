@@ -15,9 +15,9 @@ enum class AiLevel(
     val mistakeChance: Double,
     val powerFactor: Double
 ) {
-    EASY("Fácil", 4, 3.0, 0.35, 0.95),
-    MEDIUM("Médio", 8, 0.9, 0.15, 0.98),
-    HARD("Difícil", 12, 0.15, 0.0, 1.0)
+    EASY("Fácil", 5, 3.0, 0.35, 0.95),
+    MEDIUM("Médio", 14, 0.8, 0.12, 0.98),
+    HARD("Difícil", 36, 0.0, 0.0, 1.0)
 }
 
 /**
@@ -126,11 +126,32 @@ class AiPlanner(
         if (scored.isEmpty()) return AiShot(0.0, 0.3)
         scored.sortByDescending { it.score }
 
-        val pick = if (scored.size > 1 && random.nextDouble() < level.mistakeChance) {
+        var best = scored.first()
+        if (level == AiLevel.HARD) {
+            val angles = doubleArrayOf(-1.2, -0.6, 0.0, 0.6, 1.2)
+            val powers = doubleArrayOf(-0.08, 0.0, 0.08)
+            for (seed in scored.take(4)) {
+                for (da in angles) {
+                    for (dp in powers) {
+                        val angle = seed.candidate.angle + Math.toRadians(da)
+                        val power = (seed.candidate.power + dp).coerceIn(0.20, 0.95)
+                        simulation.applySnapshot(snapshot)
+                        if (!simulation.shoot(angle, power)) continue
+                        val candidate = seed.candidate.copy(angle = angle, power = power)
+                        val score = simulateAndScore(candidate, player)
+                        if (score > best.score) best = Scored(candidate, score)
+                    }
+                }
+            }
+        }
+
+        val pick = if (best === scored.first() && scored.size > 1 &&
+            random.nextDouble() < level.mistakeChance
+        ) {
             val last = minOf(scored.size - 1, 3)
             scored[1 + random.nextInt(last)]
         } else {
-            scored.first()
+            best
         }
         val noise = (random.nextDouble() * 2.0 - 1.0) *
             Math.toRadians(level.aimNoiseDegrees)
@@ -177,9 +198,9 @@ class AiPlanner(
             needed * 18.0 +
             (if (pocket.corner) 6.0 else 0.0)
 
-        val lowPower = (basePower - 0.08).coerceAtLeast(0.24)
-        val highPower = (basePower + 0.08).coerceAtMost(0.90)
-        for (power in doubleArrayOf(lowPower, highPower)) {
+        val lowPower = (basePower - 0.10).coerceAtLeast(0.24)
+        val highPower = (basePower + 0.10).coerceAtMost(0.90)
+        for (power in doubleArrayOf(lowPower, basePower, highPower)) {
             out.add(
                 Candidate(
                     targetNumber = target.number,

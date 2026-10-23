@@ -24,7 +24,9 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import com.ldmaster.sinuca.game.AiLevel
+import com.ldmaster.sinuca.game.TableTexture
 import com.ldmaster.sinuca.game.TableTheme
+import com.ldmaster.sinuca.game.TextureQuality
 import com.ldmaster.sinuca.net.BluetoothGame
 import com.ldmaster.sinuca.net.NetMessage
 import com.ldmaster.sinuca.net.Session
@@ -41,7 +43,11 @@ class MainActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var devices: LinearLayout
     private lateinit var themeButton: Button
+    private lateinit var textureButton: Button
+    private lateinit var qualityButton: Button
     private var tableTheme = TableTheme.DEFAULT
+    private var tableTexture = TableTexture.DEFAULT
+    private var tableQuality = TextureQuality.DEFAULT
     private val found = LinkedHashMap<String, BluetoothDevice>()
 
     private val menuListener = object : BluetoothGame.Listener {
@@ -91,6 +97,14 @@ class MainActivity : Activity() {
         tableTheme = TableTheme.fromKey(
             getSharedPreferences(TableTheme.PREFS, MODE_PRIVATE)
                 .getString(TableTheme.KEY, null)
+        )
+        tableTexture = TableTexture.fromKey(
+            getSharedPreferences(TableTexture.PREFS, MODE_PRIVATE)
+                .getString(TableTexture.KEY, null)
+        )
+        tableQuality = TextureQuality.fromKey(
+            getSharedPreferences(TextureQuality.PREFS, MODE_PRIVATE)
+                .getString(TextureQuality.KEY, null)
         )
         setContentView(buildUi())
         registerDiscovery()
@@ -148,6 +162,14 @@ class MainActivity : Activity() {
             chooseTheme()
         }
         column.addView(themeButton)
+        textureButton = button("Textura 4K · ${tableTexture.label}", "#2B3D2E") {
+            chooseTexture()
+        }
+        column.addView(textureButton)
+        qualityButton = button("Qualidade 4K · ${tableQuality.label}", "#3A3226") {
+            chooseQuality()
+        }
+        column.addView(qualityButton)
 
         status = text("Pronto.", 14f, "#C7D2DE").apply {
             setPadding(0, dp(20), 0, dp(12))
@@ -233,6 +255,40 @@ class MainActivity : Activity() {
                     .putString(TableTheme.KEY, tableTheme.key)
                     .apply()
                 themeButton.text = "Tema da mesa · ${tableTheme.label}"
+                dialog.dismiss()
+            }
+            .show()
+    }
+
+    private fun chooseTexture() {
+        val textures = TableTexture.entries
+        val labels = textures.map { "${it.label} — ${it.description}" }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("Textura 4K")
+            .setSingleChoiceItems(labels, textures.indexOf(tableTexture)) { dialog, which ->
+                tableTexture = textures[which]
+                getSharedPreferences(TableTexture.PREFS, MODE_PRIVATE)
+                    .edit()
+                    .putString(TableTexture.KEY, tableTexture.key)
+                    .apply()
+                textureButton.text = "Textura 4K · ${tableTexture.label}"
+                dialog.dismiss()
+            }
+            .show()
+    }
+
+    private fun chooseQuality() {
+        val qualities = TextureQuality.entries
+        val labels = qualities.map { "${it.label} — ${it.description}" }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("Qualidade da textura")
+            .setSingleChoiceItems(labels, qualities.indexOf(tableQuality)) { dialog, which ->
+                tableQuality = qualities[which]
+                getSharedPreferences(TextureQuality.PREFS, MODE_PRIVATE)
+                    .edit()
+                    .putString(TextureQuality.KEY, tableQuality.key)
+                    .apply()
+                qualityButton.text = "Qualidade 4K · ${tableQuality.label}"
                 dialog.dismiss()
             }
             .show()

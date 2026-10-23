@@ -13,7 +13,9 @@ import android.widget.Toast
 import com.ldmaster.sinuca.game.AiLevel
 import com.ldmaster.sinuca.game.AiPlayer
 import com.ldmaster.sinuca.game.GameWorld
+import com.ldmaster.sinuca.game.TableTexture
 import com.ldmaster.sinuca.game.TableTheme
+import com.ldmaster.sinuca.game.TextureQuality
 import com.ldmaster.sinuca.net.NetMessage
 import com.ldmaster.sinuca.net.Session
 import com.ldmaster.sinuca.net.Wire
@@ -109,12 +111,22 @@ class GameActivity : Activity() {
             getSharedPreferences(TableTheme.PREFS, MODE_PRIVATE)
                 .getString(TableTheme.KEY, null)
         )
+        val tableTexture = TableTexture.fromKey(
+            getSharedPreferences(TableTexture.PREFS, MODE_PRIVATE)
+                .getString(TableTexture.KEY, null)
+        )
+        val textureQuality = TextureQuality.fromKey(
+            getSharedPreferences(TextureQuality.PREFS, MODE_PRIVATE)
+                .getString(TextureQuality.KEY, null)
+        )
 
         renderer = GameRenderer(
             applicationContext,
             world,
             mirrored = localPlayer == 1,
-            theme = tableTheme
+            theme = tableTheme,
+            textureStyle = tableTexture,
+            textureQuality = textureQuality
         )
         renderer.localPlayer = localPlayer
 

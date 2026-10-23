@@ -2,6 +2,7 @@ package com.ldmaster.sinuca.render
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -16,7 +17,9 @@ import com.ldmaster.sinuca.game.Ball
 import com.ldmaster.sinuca.game.Contact
 import com.ldmaster.sinuca.game.GameWorld
 import com.ldmaster.sinuca.game.Table
+import com.ldmaster.sinuca.game.TableTexture
 import com.ldmaster.sinuca.game.TableTheme
+import com.ldmaster.sinuca.game.TextureQuality
 import com.ldmaster.sinuca.game.TrajectoryPredictor
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -32,7 +35,9 @@ class GameRenderer(
     private val context: Context,
     private val world: GameWorld,
     private val mirrored: Boolean,
-    private val theme: TableTheme = TableTheme.DEFAULT
+    private val theme: TableTheme = TableTheme.DEFAULT,
+    private val textureStyle: TableTexture = TableTexture.DEFAULT,
+    private val textureQuality: TextureQuality = TextureQuality.DEFAULT
 ) : GLSurfaceView.Renderer {
 
     @Volatile
@@ -84,6 +89,11 @@ class GameRenderer(
     private var uUseTexture = 0
     private var uTexture = 0
     private var uLightPos = 0
+    private var uStyle = 0
+    private var uUsePattern = 0
+    private var uUseLiteral = 0
+    private var uDetailMap = 0
+    private var detailTexture = 0
     private var uLineMvp = 0
     private var uLineColor = 0
 
@@ -103,6 +113,10 @@ class GameRenderer(
         uUseTexture = GLES30.glGetUniformLocation(program, "uUseTexture")
         uTexture = GLES30.glGetUniformLocation(program, "uTexture")
         uLightPos = GLES30.glGetUniformLocation(program, "uLightPos")
+        uStyle = GLES30.glGetUniformLocation(program, "uStyle")
+        uUsePattern = GLES30.glGetUniformLocation(program, "uUsePattern")
+        uUseLiteral = GLES30.glGetUniformLocation(program, "uUseLiteral")
+        uDetailMap = GLES30.glGetUniformLocation(program, "uDetailMap")
 
         lineProgram = linkProgram(LINE_VERTEX_SHADER, LINE_FRAGMENT_SHADER)
         uLineMvp = GLES30.glGetUniformLocation(lineProgram, "uMVP")
@@ -125,6 +139,8 @@ class GameRenderer(
         sphereMesh = GpuMesh(sphere(Table.BALL_RADIUS.toFloat(), segments = 64, rings = 48))
         floorMesh = GpuMesh(floor())
         for (number in 0..15) ballTextures[number] = createBallTexture(number)
+        if (textureQuality == TextureQuality.LITERAL) detailTexture = loadDetailTexture()
+
 
         val ids = IntArray(1)
         GLES30.glGenBuffers(1, ids, 0)
@@ -211,7 +227,14 @@ class GameRenderer(
         GLES30.glUniform3f(uEye, eye[0], eye[1], eye[2])
         GLES30.glUniform3f(uLightPos, 0.95f, 2.35f, -0.85f)
         drawMesh(floorMesh, viewProjection, IDENTITY, useVertexColor = false, stripe = false, color = WHITE)
-        drawMesh(tableMesh, viewProjection, IDENTITY, useVertexColor = false, stripe = false, color = WHITE)
+        drawMesh(
+            tableMesh, viewProjection, IDENTITY,
+            useVertexColor = false, stripe = false, color = WHITE,
+            textureId = detailTexture,
+            useTexture = textureQuality == TextureQuality.LITERAL,
+            useLiteral = textureQuality == TextureQuality.LITERAL,
+            usePattern = textureQuality == TextureQuality.PROCEDURAL
+        )
 
         val model = FloatArray(16)
         val mvp = FloatArray(16)
@@ -431,7 +454,9 @@ class GameRenderer(
         stripe: Boolean,
         color: FloatArray,
         textureId: Int = 0,
-        useTexture: Boolean = false
+        useTexture: Boolean = false,
+        useLiteral: Boolean = false,
+        usePattern: Boolean = false
     ) {
         if (mesh == null) return
         GLES30.glUniformMatrix4fv(uMvp, 1, false, mvp, 0)
@@ -439,11 +464,15 @@ class GameRenderer(
         GLES30.glUniform1f(uUseColor, if (useVertexColor) 1f else 0f)
         GLES30.glUniform1f(uStripe, if (stripe) 1f else 0f)
         GLES30.glUniform1f(uUseTexture, if (useTexture) 1f else 0f)
+        GLES30.glUniform1f(uUseLiteral, if (useLiteral) 1f else 0f)
+        GLES30.glUniform1f(uUsePattern, if (usePattern) 1f else 0f)
+        GLES30.glUniform1f(uStyle, textureStyle.ordinal.toFloat())
         GLES30.glUniform3f(uColor, color[0], color[1], color[2])
         if (useTexture) {
             GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
             GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, textureId)
             GLES30.glUniform1i(uTexture, 0)
+            GLES30.glUniform1i(uDetailMap, 0)
         }
         mesh.draw()
         if (useTexture) GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
@@ -489,6 +518,46 @@ class GameRenderer(
         6, 14 -> Color.rgb(15, 107, 52)
         7, 15 -> Color.rgb(122, 28, 28)
         else -> Color.rgb(20, 20, 20)
+    }
+
+    private fun loadDetailTexture(): Int {
+        val name = "textures/detail_${textureStyle.key}.jpg"
+        return try {
+            context.assets.open(name).use { stream ->
+                val bitmap = BitmapFactory.decodeStream(stream) ?: return 0
+                val max = IntArray(1)
+                GLES30.glGetIntegerv(GLES30.GL_MAX_TEXTURE_SIZE, max, 0)
+                if (bitmap.width > max[0] || bitmap.height > max[0]) {
+                    Log.w(TAG, "$name ${bitmap.width}px exceeds GL max ${max[0]}px")
+                    bitmap.recycle()
+                    return 0
+                }
+                val ids = IntArray(1)
+                GLES30.glGenTextures(1, ids, 0)
+                GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, ids[0])
+                GLES30.glTexParameteri(
+                    GLES30.GL_TEXTURE_2D,
+                    GLES30.GL_TEXTURE_MIN_FILTER,
+                    GLES30.GL_LINEAR_MIPMAP_LINEAR
+                )
+                GLES30.glTexParameteri(
+                    GLES30.GL_TEXTURE_2D,
+                    GLES30.GL_TEXTURE_MAG_FILTER,
+                    GLES30.GL_LINEAR
+                )
+                GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_REPEAT)
+                GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_REPEAT)
+                GLUtils.texImage2D(GLES30.GL_TEXTURE_2D, 0, bitmap, 0)
+                GLES30.glGenerateMipmap(GLES30.GL_TEXTURE_2D)
+                Log.i(TAG, "loaded $name ${bitmap.width}x${bitmap.height}")
+                bitmap.recycle()
+                GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
+                ids[0]
+            }
+        } catch (error: Exception) {
+            Log.e(TAG, "failed to load $name", error)
+            0
+        }
     }
 
     private fun createBallTexture(number: Int): Int {
@@ -765,7 +834,7 @@ void main() {
 """
 
         private const val FRAGMENT_SHADER = """#version 300 es
-precision mediump float;
+precision highp float;
 in vec3 vNormal;
 in vec3 vColor;
 in vec3 vLocal;
@@ -775,13 +844,48 @@ uniform vec3 uColor;
 uniform float uStripe;
 uniform float uUseColor;
 uniform float uUseTexture;
+uniform float uStyle;
+uniform float uUsePattern;
+uniform float uUseLiteral;
 uniform sampler2D uTexture;
+uniform sampler2D uDetailMap;
 uniform vec3 uEye;
 uniform vec3 uLightPos;
 out vec4 fragColor;
+
+float hash21(vec2 p) {
+    p = fract(p * vec2(123.34, 456.21));
+    p += dot(p, p + 45.32);
+    return fract(p.x * p.y);
+}
+
+float vnoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    float a = hash21(i);
+    float b = hash21(i + vec2(1.0, 0.0));
+    float c = hash21(i + vec2(0.0, 1.0));
+    float d = hash21(i + vec2(1.0, 1.0));
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+float fbm(vec2 p) {
+    float value = 0.0;
+    float amplitude = 0.5;
+    for (int i = 0; i < 5; i++) {
+        value += amplitude * vnoise(p);
+        p *= 2.03;
+        amplitude *= 0.5;
+    }
+    return value;
+}
+
 void main() {
     vec3 base;
-    if (uUseTexture > 0.5) {
+    if (uUseLiteral > 0.5) {
+        base = mix(vColor, uColor, uUseColor);
+    } else if (uUseTexture > 0.5) {
         base = pow(texture(uTexture, vUv).rgb, vec3(2.2));
     } else {
         base = mix(vColor, uColor, uUseColor);
@@ -798,13 +902,54 @@ void main() {
         );
         base *= mix(1.0, 0.96 + 0.08 * grain, wood);
     }
+
     vec3 n = normalize(vNormal);
+    float mapRoughness = 0.5;
+    if (uUseLiteral > 0.5) {
+        vec3 d = texture(uDetailMap, vUv * 2.0).rgb;
+        float height = d.r;
+        float roughness = d.g;
+        float ao = d.b;
+        base *= 0.66 + 0.68 * height;
+        base *= 0.70 + 0.30 * ao;
+        n = normalize(n + vec3((height - 0.5) * 0.55, 0.0, (roughness - 0.5) * 0.30));
+        mapRoughness = roughness;
+    } else if (uUsePattern > 0.5) {
+        vec3 p = vWorld * 10.0;
+        float grain = sin(p.x * 55.0 + fbm(p.xz * 2.5) * 9.0);
+        float weave = sin(p.x * 210.0) * sin(p.z * 210.0);
+        float brushed = fbm(vec2(p.x * 1.5, p.z * 80.0));
+        float macro = fbm(p.xz * 0.35);
+        float scratches = smoothstep(0.55, 0.90, fbm(vec2(p.x * 3.0, p.z * 90.0)));
+        float chalk = smoothstep(0.60, 0.85, fbm(p.xz * 1.8));
+        float detail;
+        float bump;
+        if (uStyle < 0.5) {
+            detail = grain * 0.060 + weave * 0.035 + brushed * 0.030;
+            bump = grain * 0.50 + weave * 0.30;
+        } else if (uStyle < 1.5) {
+            detail = grain * 0.070 + weave * 0.040 + scratches * 0.130 + chalk * 0.060;
+            bump = grain * 0.60 + scratches * 0.80;
+        } else if (uStyle < 2.5) {
+            detail = grain * 0.025 + weave * 0.020;
+            bump = grain * 0.25;
+        } else if (uStyle < 3.5) {
+            detail = grain * 0.050 + weave * 0.030 + (macro - 0.5) * 0.100;
+            bump = grain * 0.45 + macro * 0.30;
+        } else {
+            detail = grain * 0.035 + weave * 0.025;
+            bump = grain * 0.35;
+        }
+        base *= 1.0 + detail;
+        n = normalize(n + vec3(grain * bump * 0.060, 0.0, weave * bump * 0.060));
+    }
     vec3 l = normalize(vec3(0.35, 1.0, 0.25));
     vec3 v = normalize(uEye - vWorld);
     vec3 h = normalize(l + v);
     float diffuse = max(dot(n, l), 0.0);
     float luminance = dot(base, vec3(0.2126, 0.7152, 0.0722));
-    float gloss = clamp(luminance * 5.0, 0.0, 1.0);
+    float gloss = clamp(luminance * 5.0, 0.0, 1.0) *
+        mix(1.0, 0.55, mapRoughness);
 
     vec3 toLight = uLightPos - vWorld;
     float distanceToLight = length(toLight);

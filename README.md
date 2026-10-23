@@ -69,6 +69,7 @@ Vistas extras: [100% de cima, com as caçapas](docs/screenshot-top.png) ·
   mostrando **IA PENSANDO** no HUD.
 
 - **Quatro temas de mesa** — Heritage Club, Arena Matte, Foundry Loft e Neo Sport —, cada um com um GLB próprio. O botão **Tema da mesa** no menu principal troca o tema, guarda a escolha em SharedPreferences e o renderer carrega o GLB correspondente.
+- **Cinco texturas 4K** — Scan Fidelity, Cinematic Wear, Clean Premium, Procedural Infinite e Mobile Atlas —, selecionadas pelo botão **Textura 4K**. Cada tema × textura forma **20 combinações**. O botão **Qualidade 4K** escolhe entre **Literal** (mapas 4096×4096 embutidos no APK, usados como altura/rugosidade/AO) e **Procedural** (detalhe calculado no shader, APK leve); a escolha também fica em SharedPreferences.
 
 ## Requisitos
 
