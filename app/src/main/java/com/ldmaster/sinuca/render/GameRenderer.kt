@@ -95,6 +95,7 @@ class GameRenderer(
     private var uDetailMap = 0
     private var uDetailStrength = 0
     private var uDetailScale = 0
+    private var uDetailBase = 0
     private var detailTexture = 0
     private var uLineMvp = 0
     private var uLineColor = 0
@@ -121,6 +122,7 @@ class GameRenderer(
         uDetailMap = GLES30.glGetUniformLocation(program, "uDetailMap")
         uDetailStrength = GLES30.glGetUniformLocation(program, "uDetailStrength")
         uDetailScale = GLES30.glGetUniformLocation(program, "uDetailScale")
+        uDetailBase = GLES30.glGetUniformLocation(program, "uDetailBase")
 
         lineProgram = linkProgram(LINE_VERTEX_SHADER, LINE_FRAGMENT_SHADER)
         uLineMvp = GLES30.glGetUniformLocation(lineProgram, "uMVP")
@@ -471,9 +473,24 @@ class GameRenderer(
         GLES30.glUniform1f(uUseLiteral, if (useLiteral) 1f else 0f)
         GLES30.glUniform1f(uUsePattern, if (usePattern) 1f else 0f)
         GLES30.glUniform1f(uStyle, textureStyle.ordinal.toFloat())
-        val detailed = textureQuality == TextureQuality.DETAILED_2K
-        GLES30.glUniform1f(uDetailStrength, if (detailed) 1.4f else 1.0f)
-        GLES30.glUniform1f(uDetailScale, if (detailed) 1.5f else 2.0f)
+        val strength = when (textureQuality) {
+            TextureQuality.DETAILED_1080 -> 1.0f
+            TextureQuality.DETAILED_2K -> 1.1f
+            else -> 1.0f
+        }
+        val scale = when (textureQuality) {
+            TextureQuality.DETAILED_1080 -> 1.0f
+            TextureQuality.DETAILED_2K -> 1.5f
+            else -> 2.0f
+        }
+        val baseMix = when (textureQuality) {
+            TextureQuality.DETAILED_1080 -> 0.0f
+            TextureQuality.DETAILED_2K -> 0.25f
+            else -> 0.5f
+        }
+        GLES30.glUniform1f(uDetailStrength, strength)
+        GLES30.glUniform1f(uDetailScale, scale)
+        GLES30.glUniform1f(uDetailBase, baseMix)
         GLES30.glUniform3f(uColor, color[0], color[1], color[2])
         if (useTexture) {
             GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
@@ -531,10 +548,26 @@ class GameRenderer(
         val name = "textures/detail_${textureStyle.key}.jpg"
         return try {
             context.assets.open(name).use { stream ->
-                val options = BitmapFactory.Options().apply {
-                    inSampleSize = if (textureQuality == TextureQuality.DETAILED_2K) 2 else 1
+                val sampleSize = when (textureQuality) {
+                    TextureQuality.DETAILED_1080, TextureQuality.DETAILED_2K -> 2
+                    else -> 1
                 }
-                val bitmap = BitmapFactory.decodeStream(stream, null, options) ?: return 0
+                val options = BitmapFactory.Options().apply {
+                    inSampleSize = sampleSize
+                }
+                val decoded = BitmapFactory.decodeStream(stream, null, options) ?: return 0
+                val target = when (textureQuality) {
+                    TextureQuality.DETAILED_1080 -> 1080
+                    TextureQuality.DETAILED_2K -> 2048
+                    else -> decoded.width
+                }
+                val bitmap = if (decoded.width != target) {
+                    Bitmap.createScaledBitmap(decoded, target, target, true).also {
+                        if (it !== decoded) decoded.recycle()
+                    }
+                } else {
+                    decoded
+                }
                 val max = IntArray(1)
                 GLES30.glGetIntegerv(GLES30.GL_MAX_TEXTURE_SIZE, max, 0)
                 if (bitmap.width > max[0] || bitmap.height > max[0]) {
@@ -859,6 +892,7 @@ uniform float uUsePattern;
 uniform float uUseLiteral;
 uniform float uDetailStrength;
 uniform float uDetailScale;
+uniform float uDetailBase;
 uniform sampler2D uTexture;
 uniform sampler2D uDetailMap;
 uniform vec3 uEye;
@@ -922,8 +956,8 @@ void main() {
         float height = d.r;
         float roughness = d.g;
         float ao = d.b;
-        base *= 1.0 + (height - 0.5) * 0.90 * uDetailStrength;
-        base *= 0.75 + 0.25 * ao;
+        base *= 1.0 + (height - 0.5) * 0.90 * uDetailStrength * uDetailBase;
+        base *= 0.85 + 0.15 * ao;
         n = normalize(n + vec3(
             (height - 0.5) * 0.80 * uDetailStrength,
             0.0,
