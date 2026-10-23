@@ -18,38 +18,43 @@ feita nos dois lugares.
 | Dimensão externa | 2,93 × 1,66 m | 9 ft com trilhos |
 | Topo do pano | 750 mm | altura de jogo 74–79 cm |
 | Topo do trilho | 800 mm | 1,5 in acima do pano |
-| Furo do pano (canto / central) | 138 / 142 mm | abertura do slate |
-| Furo do trilho (canto / central) | 160 / 164 mm | recorte na madeira |
-| Aro do pocket, diâmetro externo | 188 / 192 mm | casting metálico |
+| Espessura do pano | 4 mm | feltro sobre o slate |
+| Slate | 46 mm | laje escura sob o pano |
+| Diâmetro interno do copo (canto / central) | 136 / 140 mm | furo visível da caçapa |
+| Parede do copo | 12 mm | revestimento do furo |
 | Profundidade do poço | 165 mm | drop pocket |
+| Faceta de borracha | 22 mm | ponta escura da almofada |
 
 ## Geométrico
 
 - A caçapa de canto é uma circunferência centrada no vértice da área de jogo,
-  com o trilho de madeira contornando-a por fora. Não existe recorte aberto na
-  moldura: o buraco é usinado dentro do trilho.
-- A boca é definida pelo recuo das pontas das almofadas: 82,0 mm em cada
-  direção no canto (`116/√2`) e 63,5 mm de cada lado da caçapa central.
-- As almofadas têm 48 mm de corpo atrás do nariz, 36 mm de altura e 6 mm de
-  arredondamento. O nariz fica exatamente na borda da área de jogo.
-- O copo do pocket reveste o furo do trilho de baixo a cima (parede de 12 mm),
-  de modo que a parede visível é sempre o material escuro do copo, nunca a
-  madeira. O aro metálico fica 0,5 mm acima do topo do trilho, sem faces
-  coplanares com a madeira.
-- O furo do pano é 1 mm maior que a parede interna do copo; o copo cobre a borda
-  do pano e elimina o z-fighting. A física usa o raio interno do copo (68 mm no
-  canto, 70 mm na central), que é o que o jogador vê.
+  com o trilho de madeira contornando-a por fora. A boca é a **corda entre as
+  pontas das almofadas**; o pano é recortado só atrás dessa corda, de modo que
+  o buraco fica inteiro na madeira e o verde não é invadido.
+- A caçapa central segue a mesma regra: o pano é recortado a partir da linha da
+  almofada, e o copo fica atrás dela.
+- O copo é uma peça única: um poço fechado abaixo do pano e uma meia-camisa
+  acima dele. Só a metade voltada para a caçapa é mantida; a metade voltada
+  para o pano é removida para nunca aparecer como um aro escuro sobre o verde.
+- As pontas das almofadas são recuadas para abrir as bocas (82,0 mm em cada
+  direção no canto, 63,5 mm de cada lado na central) e recebem facetas escuras
+  de 22 mm, cobrindo o tecido verde da ponta.
+- O pano (4 mm) e o slate (46 mm) são cortados pelo mesmo recorte de boca, então
+  a borda verde é uma linha fina com slate escuro embaixo, e não uma parede
+  verde dentro da caçapa.
 
 ## Física correspondente
 
 `Table.kt` expõe as mesmas grandezas:
 
-- `POCKETS` — centros em `(±1,27, ±0,635)` e `(0, ±0,635)`, raios de captura
-  68 mm e 70 mm.
-- `CUSHIONS` — seis segmentos de reta no nariz das almofadas; a colisão é por
-  cápsula, então as pontas funcionam como mandíbulas arredondadas.
-- A captura só acontece quando o centro da bola entra no raio do copo; uma bola
-  que passa de raspão bate na mandíbula/saia e continua em jogo.
+- A captura só acontece **depois** que o centro da bola cruza a linha da boca:
+  a corda entre as pontas no canto (`u + v ≤ CORNER_TIP`) ou a linha da
+  almofada na central (`|x| ≤ SIDE_TIP` e a bola além da linha).
+- O copo fica atrás dessa linha; uma bola que passa fora da boca bate na
+  mandíbula (cápsula da almofada) e continua em jogo.
+- A folga para uma bola entrar de frente na caçapa central é a boca menos o
+  diâmetro da bola (127 − 57 ≈ 70 mm, ou ±35 mm de centro), que é o que o
+  laboratório mede.
 
 ## Fontes
 

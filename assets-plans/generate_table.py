@@ -37,12 +37,10 @@ CUSHION_TOP = CLOTH_TOP + 0.036        # 63.5% of the ball diameter
 
 # Pocket geometry: the cloth hole is the slate opening, the rail hole is the
 # casting and the mouth is the gap left between cushion tips.
-CORNER_HOLE_R = 0.069          # 1 mm larger than the cup wall (avoids z-fighting)
-CORNER_RAIL_R = 0.080          # casting opening in the wood
+CORNER_RAIL_R = 0.080          # hole through the rail wood
 CORNER_MOUTH = 0.116           # diagonal between cushion tips
 CORNER_TIP = CORNER_MOUTH / math.sqrt(2.0)   # setback along each rail
 
-SIDE_HOLE_R = 0.071
 SIDE_RAIL_R = 0.082
 SIDE_MOUTH = 0.127
 SIDE_TIP = SIDE_MOUTH / 2.0
@@ -53,7 +51,6 @@ SIDE_WELL_OUTER = SIDE_RAIL_R
 SIDE_WELL_INNER = 0.070
 WELL_BOTTOM = 0.585
 
-CASTING_LIP = 0.014
 
 LEG_TOP = APRON_BOTTOM
 LEG_SIZE = 0.125
@@ -122,17 +119,64 @@ def material(obj: str, name: str, color: tuple[float, float, float],
        roughness=roughness, metallic=metallic)
 
 
+CLOTH_THICKNESS = 0.004
+SLATE_TOP = CLOTH_TOP - CLOTH_THICKNESS
+CLOTH_Z = (CLOTH_TOP + SLATE_TOP) / 2.0
+SLATE_Z = (SLATE_TOP + SLATE_BOTTOM) / 2.0
+
+
+def mouth_cut(name: str, x: float, y: float, corner: bool, inward: bool,
+              width: float, depth: float, z_center: float, z0: float,
+              z1: float) -> str:
+    """Box on one side of the pocket mouth line.
+
+    The mouth is the chord between the cushion tips for a corner pocket and
+    the segment between the tips for a side pocket. ``inward`` selects the
+    playing side (used to trim the visible half of the liner); otherwise the
+    box covers the pocket side (used to cut the cloth). The corner boxes are
+    rotated to align with the chord.
+    """
+    if corner:
+        sx = 1.0 if x > 0 else -1.0
+        sy = 1.0 if y > 0 else -1.0
+        ox, oy = sx / math.sqrt(2.0), sy / math.sqrt(2.0)
+        angle = math.atan2(sy, sx)
+        chord_x = x - ox * (CORNER_TIP / math.sqrt(2.0))
+        chord_y = y - oy * (CORNER_TIP / math.sqrt(2.0))
+        sign = -1.0 if inward else 1.0
+        cx = chord_x + sign * ox * depth / 2.0
+        cy = chord_y + sign * oy * depth / 2.0
+        return cube(name, (cx, cy, z_center), (depth, width, z1 - z0),
+                    rotation=(0.0, 0.0, angle))
+    sy = 1.0 if y > 0 else -1.0
+    sign = -1.0 if inward else 1.0
+    cy = y + sign * sy * depth / 2.0
+    return cube(name, (0.0, cy, z_center), (width, depth, z1 - z0))
+
+
 # --------------------------------------------------------------------------- #
-# 1. Cloth + slate with the six slate holes
+# 1. Cloth: the green stops at the mouth line, so the pocket opening sits
+#    behind the cushion noses, never over the playing surface.
 # --------------------------------------------------------------------------- #
 def build_cloth() -> None:
-    cube("SM_Cloth", (0.0, 0.0, (CLOTH_TOP + SLATE_BOTTOM) / 2.0),
-         (HALF_L * 2.0, HALF_W * 2.0, CLOTH_TOP - SLATE_BOTTOM))
+    cube("SM_Cloth", (0.0, 0.0, CLOTH_Z),
+         (HALF_L * 2.0, HALF_W * 2.0, CLOTH_THICKNESS))
+    cube("SM_Slate", (0.0, 0.0, SLATE_Z),
+         (HALF_L * 2.0, HALF_W * 2.0, SLATE_TOP - SLATE_BOTTOM))
     for name, x, y, corner in POCKETS:
-        radius = CORNER_HOLE_R if corner else SIDE_HOLE_R
-        hole("SM_Cloth", f"CUT_CLOTH_{name}", x, y, radius,
-             SLATE_BOTTOM - 0.01, CLOTH_TOP + 0.01)
+        cutter = mouth_cut(
+            f"CUT_MOUTH_{name}", x, y, corner, inward=False,
+            width=CORNER_MOUTH + 0.002 if corner else SIDE_MOUTH + 0.002,
+            depth=0.30, z_center=SLATE_Z, z0=SLATE_BOTTOM - 0.01,
+            z1=CLOTH_TOP + 0.01,
+        )
+        op("boolean", object="SM_Cloth", operand=cutter,
+           operation="difference", apply=True)
+        op("boolean", object="SM_Slate", operand=cutter,
+           operation="difference", apply=True)
+        op("delete", object=cutter)
     material("SM_Cloth", "MAT_Cloth", (0.010, 0.140, 0.058), 0.94)
+    material("SM_Slate", "MAT_Slate", (0.030, 0.032, 0.034), 0.88)
 
 
 # --------------------------------------------------------------------------- #
@@ -172,6 +216,38 @@ def build_cushions() -> None:
     join(names, "SM_Cushions")
     bevel("SM_Cushions", 0.006, 3)
     material("SM_Cushions", "MAT_Cushion", (0.010, 0.120, 0.050), 0.90)
+
+
+def build_facings() -> None:
+    """Dark rubber caps on the cushion ends so the jaws read as facings."""
+    z_mid = (CLOTH_TOP + CUSHION_TOP) / 2.0
+    height = CUSHION_TOP - CLOTH_TOP
+    caps = []
+    for sign in (1.0, -1.0):
+        y = sign * (HALF_W + CUSHION_DEPTH / 2.0)
+        for x_end in (-HALF_L + CORNER_TIP, -SIDE_TIP, SIDE_TIP, HALF_L - CORNER_TIP):
+            is_corner = abs(x_end) > SIDE_TIP + 0.001
+            inward = -1.0 if is_corner else 1.0
+            inward *= 1.0 if x_end > 0 else -1.0
+            tag = f"{'T' if sign > 0 else 'B'}{'L' if x_end < 0 else 'R'}{abs(x_end):.3f}"
+            caps.append(cube(
+                f"FACING_{tag}",
+                (x_end + inward * 0.009, y, z_mid),
+                (0.022, CUSHION_DEPTH + 0.004, height + 0.001),
+            ))
+    short = HALF_W - CORNER_TIP
+    for sign in (1.0, -1.0):
+        x = sign * (HALF_L + CUSHION_DEPTH / 2.0)
+        for z_end in (-short, short):
+            inward = -1.0 if z_end > 0 else 1.0
+            tag = f"{'R' if sign > 0 else 'L'}{'F' if z_end > 0 else 'B'}"
+            caps.append(cube(
+                f"FACING_{tag}",
+                (x, z_end + inward * 0.009, z_mid),
+                (CUSHION_DEPTH + 0.004, 0.022, height + 0.001),
+            ))
+    join(caps, "SM_Facings")
+    material("SM_Facings", "MAT_Facing", (0.020, 0.017, 0.014), 0.92)
 
 
 # --------------------------------------------------------------------------- #
@@ -219,16 +295,15 @@ def build_rails() -> None:
         segments.append(rail)
 
     join(segments, "SM_Rails")
-    bevel("SM_Rails", 0.002, 2)
+    bevel("SM_Rails", 0.002, 3)
     material("SM_Rails", "MAT_Wood", (0.170, 0.072, 0.034), 0.48)
 
 
 # --------------------------------------------------------------------------- #
-# 4. Pockets: one liner cup per pocket, through the rail and the apron.
+# 4. Pockets: one liner cup per pocket, clipped to the pocket side.
 # --------------------------------------------------------------------------- #
 def build_pockets() -> None:
     wells = []
-    castings = []
     for name, x, y, corner in POCKETS:
         outer = WELL_OUTER if corner else SIDE_WELL_OUTER
         inner = WELL_INNER if corner else SIDE_WELL_INNER
@@ -238,20 +313,21 @@ def build_pockets() -> None:
         cylinder(f"WELLCUT_{name}", (x, y, (WELL_BOTTOM + 0.025 + well_top + 0.01) / 2.0),
                  inner * 2.0, well_top + 0.01 - (WELL_BOTTOM + 0.025))
         cut(well, f"WELLCUT_{name}")
+
+        # The liner is a full cup below the cloth, but its upper half facing
+        # the playing surface is removed: only the pocket-side half is visible,
+        # so no dark ring ever sits over the green.
+        upper = mouth_cut(
+            f"CUT_WELLTOP_{name}", x, y, corner, inward=True,
+            width=CORNER_MOUTH + 0.002 if corner else 0.30,
+            depth=0.30, z_center=(SLATE_TOP + 0.810) / 2.0,
+            z0=SLATE_TOP, z1=0.810,
+        )
+        cut(well, upper)
         wells.append(well)
 
-        rail_r = CORNER_RAIL_R if corner else SIDE_RAIL_R
-        casting = cylinder(f"CAST_{name}", (x, y, RAIL_TOP + 0.002),
-                           (rail_r + CASTING_LIP) * 2.0, 0.003)
-        cylinder(f"CASTCUT_{name}", (x, y, RAIL_TOP + 0.002),
-                 rail_r * 2.0, 0.02)
-        cut(casting, f"CASTCUT_{name}")
-        castings.append(casting)
-
     join(wells, "SM_PocketWells")
-    join(castings, "SM_PocketCastings")
     material("SM_PocketWells", "MAT_Pocket", (0.008, 0.007, 0.006), 0.94)
-    material("SM_PocketCastings", "MAT_Casting", (0.020, 0.016, 0.012), 0.84)
 
 
 # --------------------------------------------------------------------------- #
@@ -339,6 +415,7 @@ def main() -> None:
     op("clear")
     build_cloth()
     build_cushions()
+    build_facings()
     build_rails()
     build_pockets()
     build_apron_and_legs()
@@ -349,9 +426,9 @@ def main() -> None:
         "schema_version": "1.0.0",
         "notes": (
             "Regulation 9 ft 8-ball table, 2.54 x 1.27 m playing surface. "
-            "Pockets are castings cut into the rail ring with the wood wrapping "
-            "around them; cushion tips set back for 116 mm corner and 127 mm "
-            "side mouths; wells and nets contained inside the frame. "
+            "The cloth is cut only behind the mouth line, so the pockets sit "
+            "inside the rail ring; cushion tips are set back for 116 mm corner "
+            "and 127 mm side mouths, with dark facings and a lined half-cup. "
             "Generated by assets-plans/generate_table.py."
         ),
         "ops": OPS,

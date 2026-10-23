@@ -253,8 +253,8 @@ class PhysicsLabTest {
         line("side pocket accepted ${accepted} of 101 offsets, half-width ${"%.1f".format(widest * 1000)} mm")
         assertTrue("the side pocket must accept a centred ball", accepted > 20)
         assertTrue(
-            "side mouth is 127 mm, acceptance must match, got ${widest * 1000} mm",
-            widest in 0.055..0.072
+            "side mouth is 127 mm, ball centre clearance must be about 35 mm, got ${widest * 1000} mm",
+            widest in 0.030..0.045
         )
 
         var cornerFallen = 0

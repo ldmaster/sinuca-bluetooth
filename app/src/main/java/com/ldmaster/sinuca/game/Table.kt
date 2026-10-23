@@ -1,5 +1,7 @@
 package com.ldmaster.sinuca.game
 
+import kotlin.math.abs
+
 object Table {
     const val HALF_LENGTH = 1.27
     const val HALF_WIDTH = 0.635
@@ -15,9 +17,11 @@ object Table {
     data class Pocket(
         val x: Double,
         val z: Double,
-        val radius: Double,
         val corner: Boolean
-    )
+    ) {
+        val sx: Double = if (x >= 0.0) 1.0 else -1.0
+        val sz: Double = if (z >= 0.0) 1.0 else -1.0
+    }
 
     data class Cushion(
         val x1: Double,
@@ -27,12 +31,12 @@ object Table {
     )
 
     val POCKETS: List<Pocket> = listOf(
-        Pocket(HALF_LENGTH, HALF_WIDTH, 0.068, true),
-        Pocket(HALF_LENGTH, -HALF_WIDTH, 0.068, true),
-        Pocket(-HALF_LENGTH, HALF_WIDTH, 0.068, true),
-        Pocket(-HALF_LENGTH, -HALF_WIDTH, 0.068, true),
-        Pocket(0.0, HALF_WIDTH, 0.070, false),
-        Pocket(0.0, -HALF_WIDTH, 0.070, false)
+        Pocket(HALF_LENGTH, HALF_WIDTH, true),
+        Pocket(HALF_LENGTH, -HALF_WIDTH, true),
+        Pocket(-HALF_LENGTH, HALF_WIDTH, true),
+        Pocket(-HALF_LENGTH, -HALF_WIDTH, true),
+        Pocket(0.0, HALF_WIDTH, false),
+        Pocket(0.0, -HALF_WIDTH, false)
     )
 
     val CUSHIONS: List<Cushion> = buildList {
@@ -48,6 +52,23 @@ object Table {
             val x = sign * HALF_LENGTH
             add(Cushion(x, -short, x, short))
         }
+    }
+
+    /**
+     * The pocket is behind the mouth line, so a ball is captured only after
+     * its centre crosses that line: the chord between the cushion tips for a
+     * corner pocket, or the cushion line for a side pocket. The green cloth is
+     * never cut inside the playing surface.
+     */
+    fun captured(pocket: Pocket, x: Double, z: Double): Boolean {
+        if (pocket.corner) {
+            if (x * pocket.sx <= 0.0 || z * pocket.sz <= 0.0) return false
+            val u = HALF_LENGTH - abs(x)
+            val v = HALF_WIDTH - abs(z)
+            return u + v <= CORNER_TIP
+        }
+        return abs(x) <= SIDE_TIP &&
+            z * pocket.sz >= HALF_WIDTH - 0.0001
     }
 
     val CUE_SPOT = doubleArrayOf(-0.70, 0.0)

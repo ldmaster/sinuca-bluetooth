@@ -9,30 +9,34 @@ alta tesselação com texturas procedurais de número e listra. O jogo é
 Kotlin + OpenGL ES 3.0, sem engine externa.
 
 A mesa segue as medidas reais de uma mesa de torneio de 9 pés (área de jogo
-2,54 × 1,27 m, bolas de 57,15 mm, bocas de 116/127 mm). As caçapas são copos
-usinados **dentro** do trilho, com a madeira contornando cada boca. As medidas,
-fontes e a correspondência com a física estão em
+2,54 × 1,27 m, bolas de 57,15 mm, bocas de 116/127 mm). As caçapas ficam
+**atrás da linha da boca**, com copo revestido e a madeira contornando a
+abertura; o pano só é recortado depois da linha, então o verde nunca é
+invadido. As medidas, fontes e a correspondência com a física estão em
 [`docs/table-spec.md`](docs/table-spec.md); o relatório do laboratório de física
 fica em [`docs/physics-report.md`](docs/physics-report.md).
 
 ![Mesa e HUD](docs/screenshot.png)
 
-Vistas extras: [de cima, com as caçapas](docs/screenshot-top.png) ·
+Vistas extras: [100% de cima, com as caçapas](docs/screenshot-top.png) ·
 [trajetória prevista](docs/screenshot-trajectory.png).
 
 ## O que está implementado
 
 - Mesa de 9 pés modelada a partir de especificações WPA/BCA: área de jogo
-  2,54 × 1,27 m, trilho de 195 mm, almofadas com nariz a 36 mm (63,5% da bola)
-  e caçapas com copo, aro metálico e a madeira contornando a boca. Nada
-  ultrapassa a moldura.
-- Bolas de 48×32 segmentos com textura de número/listra: cores definidas, bolas
-  lisas e listradas, 8 e branca.
+  2,54 × 1,27 m, trilho de 195 mm, almofadas com nariz a 36 mm (63,5% da bola),
+  pano de 4 mm sobre slate escuro, copo revestido e facetas de borracha nas
+  pontas das almofadas. A boca fica na linha da almofada; o buraco fica atrás,
+  dentro da madeira. Nada ultrapassa a moldura.
+- Bolas de 64×48 segmentos com textura 768×384 de número/listra, brilho
+  especular e uma luz pontual sobre a mesa para dar volume às bolas de cor
+  única.
 - Física própria calibrada contra a mesa real: atrito de rolamento + arrasto,
   subpassos de 0,45 mm, colisão por cápsula nas almofadas (mandíbulas
   arredondadas), restituição 0,88 nas tabelas e direção da bola-alvo igual à
   bola fantasma com erro máximo de 0,26°. A força é progressiva: 3% move
-  ~20 cm, 10% ~0,9 m, 50% ~5,4 m e 100% sai a 6,2 m/s.
+  ~20 cm, 10% ~0,86 m, 25% ~2,3 m, 50% ~4,5 m (com tabelas) e 100% sai a
+  6,2 m/s.
 - **Efeito (english)**: selecione o ponto de acerto na bola branca. Parte baixa
   faz a branca voltar (draw), parte alta segue em frente (follow), laterais
   curvam a trajetória e alteram o quique nas tabelas.
@@ -47,7 +51,7 @@ Vistas extras: [de cima, com as caçapas](docs/screenshot-top.png) ·
 - Barra de força vertical discreta, botão de tacada pequeno e HUD sem painéis:
   bolas encaçapadas, vez, ícones de câmera/trajetória/sair e efeito ficam nos
   cantos.
-- Três perspectivas de câmera (3/4, alta e baixa).
+- Quatro perspectivas de câmera (3/4, alta, baixa e 100% de cima).
 - Rolamento visual das bolas proporcional à velocidade.
 - Multiplayer host-autoritativo: o host simula e envia snapshots (~16 Hz); o
   cliente prevê localmente e recebe correções. Apenas uma conexão é aceita.
@@ -87,7 +91,7 @@ Controles (paisagem, tudo nos cantos):
   vermelho indica onde a tacada acerta a branca.
 - **Tacada:** toque no círculo **ATIRAR** no canto inferior direito.
 - **Trajetória:** ícone de curva no canto superior direito (liga/desliga).
-- **Câmera:** ícone de câmera no canto superior direito alterna as 3 vistas.
+- **Câmera:** ícone de câmera no canto superior direito alterna as 4 vistas.
 - **Sair:** **X** no canto superior direito.
 - **Bolas encaçapadas:** fileiras discretas **V** (você) e **A** (adversário)
   no canto superior esquerdo.
@@ -132,8 +136,9 @@ O protocolo usa uma linha JSON por mensagem (`hello`, `start`, `state`, `shot`,
 A mesa é gerada deterministicamente por `assets-plans/generate_table.py`, que
 emite `assets-plans/table.json` (operações tipadas do harness, sem scripts
 `bpy`). Nada é improvisado: as cotas vêm de `docs/table-spec.md`. O plano recorta
-as caçapas em cada trilho antes de juntá-los, cunha copos e aros dentro da
-madeira e mantém todas as superfícies sem sobreposição coplanar. Para regerar:
+o pano e o slate atrás da linha da boca, cunha o copo dentro do trilho, cobre
+as pontas das almofadas com facetas e mantém as superfícies sem sobreposição
+coplanar. Para regerar:
 
 ```bash
 python3 assets-plans/generate_table.py

@@ -81,6 +81,7 @@ class GameRenderer(
     private var uEye = 0
     private var uUseTexture = 0
     private var uTexture = 0
+    private var uLightPos = 0
     private var uLineMvp = 0
     private var uLineColor = 0
 
@@ -99,6 +100,7 @@ class GameRenderer(
         uEye = GLES30.glGetUniformLocation(program, "uEye")
         uUseTexture = GLES30.glGetUniformLocation(program, "uUseTexture")
         uTexture = GLES30.glGetUniformLocation(program, "uTexture")
+        uLightPos = GLES30.glGetUniformLocation(program, "uLightPos")
 
         lineProgram = linkProgram(LINE_VERTEX_SHADER, LINE_FRAGMENT_SHADER)
         uLineMvp = GLES30.glGetUniformLocation(lineProgram, "uMVP")
@@ -118,7 +120,7 @@ class GameRenderer(
             Log.e(TAG, "failed to load models", error)
         }
 
-        sphereMesh = GpuMesh(sphere(Table.BALL_RADIUS.toFloat(), segments = 48, rings = 32))
+        sphereMesh = GpuMesh(sphere(Table.BALL_RADIUS.toFloat(), segments = 64, rings = 48))
         floorMesh = GpuMesh(floor())
         for (number in 0..15) ballTextures[number] = createBallTexture(number)
 
@@ -136,7 +138,7 @@ class GameRenderer(
     }
 
     fun cycleCamera() {
-        cameraMode = (cameraMode + 1) % 3
+        cameraMode = (cameraMode + 1) % 4
         updateCamera()
     }
 
@@ -160,6 +162,12 @@ class GameRenderer(
                 eyeZ = 3.55f * side
                 lookY = 0.82f
             }
+            3 -> {
+                fieldOfView = 42f
+                eyeY = 4.60f
+                eyeZ = 0.0f
+                lookY = 0.72f
+            }
             else -> {
                 fieldOfView = 46f
                 eyeY = 2.62f
@@ -171,11 +179,13 @@ class GameRenderer(
         eye[0] = 0f
         eye[1] = eyeY
         eye[2] = eyeZ
+        val upY = if (cameraMode == 3) 0f else 1f
+        val upZ = if (cameraMode == 3) -1f else 0f
         Matrix.setLookAtM(
             view, 0,
             eye[0], eye[1], eye[2],
             0f, lookY, 0f,
-            0f, 1f, 0f
+            0f, upY, upZ
         )
         Matrix.multiplyMM(viewProjection, 0, projection, 0, view, 0)
     }
@@ -190,6 +200,7 @@ class GameRenderer(
 
         GLES30.glUseProgram(program)
         GLES30.glUniform3f(uEye, eye[0], eye[1], eye[2])
+        GLES30.glUniform3f(uLightPos, 0.95f, 2.35f, -0.85f)
         drawMesh(floorMesh, viewProjection, IDENTITY, useVertexColor = false, stripe = false, color = WHITE)
         drawMesh(tableMesh, viewProjection, IDENTITY, useVertexColor = false, stripe = false, color = WHITE)
 
@@ -496,8 +507,8 @@ class GameRenderer(
     }
 
     private fun createBallTexture(number: Int): Int {
-        val width = 512
-        val height = 256
+        val width = 768
+        val height = 384
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -781,6 +792,7 @@ uniform float uUseColor;
 uniform float uUseTexture;
 uniform sampler2D uTexture;
 uniform vec3 uEye;
+uniform vec3 uLightPos;
 out vec4 fragColor;
 void main() {
     vec3 base;
@@ -793,6 +805,14 @@ void main() {
             base = mix(vec3(0.93), base, band);
         }
     }
+    if (uUseTexture < 0.5) {
+        float wood = smoothstep(0.08, 0.13, base.r) *
+            (1.0 - smoothstep(0.06, 0.10, base.g));
+        float grain = 0.5 + 0.5 * sin(
+            vWorld.x * 22.0 + vWorld.y * 11.0 + 1.5 * sin(vWorld.z * 9.0)
+        );
+        base *= mix(1.0, 0.96 + 0.08 * grain, wood);
+    }
     vec3 n = normalize(vNormal);
     vec3 l = normalize(vec3(0.35, 1.0, 0.25));
     vec3 v = normalize(uEye - vWorld);
@@ -800,8 +820,19 @@ void main() {
     float diffuse = max(dot(n, l), 0.0);
     float luminance = dot(base, vec3(0.2126, 0.7152, 0.0722));
     float gloss = clamp(luminance * 5.0, 0.0, 1.0);
+
+    vec3 toLight = uLightPos - vWorld;
+    float distanceToLight = length(toLight);
+    vec3 pl = toLight / max(distanceToLight, 0.001);
+    float attenuation = 1.0 / (1.0 + 0.30 * distanceToLight * distanceToLight);
+    float pointDiffuse = max(dot(n, pl), 0.0) * attenuation;
+    vec3 pointHalf = normalize(pl + v);
+    float pointSpecular = pow(max(dot(n, pointHalf), 0.0), 180.0) *
+        0.95 * attenuation * mix(0.05, 1.0, gloss);
+
     float specular = pow(max(dot(n, h), 0.0), 56.0) * 0.35 * mix(0.04, 1.0, gloss);
-    vec3 lit = base * (0.42 + 0.78 * diffuse) + vec3(specular);
+    vec3 lit = base * (0.42 + 0.78 * diffuse + 0.25 * pointDiffuse) +
+        vec3(specular + pointSpecular);
     fragColor = vec4(pow(clamp(lit, 0.0, 1.0), vec3(1.0 / 2.2)), 1.0);
 }
 """

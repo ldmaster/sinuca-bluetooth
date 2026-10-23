@@ -244,9 +244,7 @@ class GameWorld(val practice: Boolean = false) {
 
     internal fun pocketed(ball: Ball): Boolean {
         for (pocket in Table.POCKETS) {
-            val dx = ball.x - pocket.x
-            val dz = ball.z - pocket.z
-            if (hypot(dx, dz) >= pocket.radius) continue
+            if (!Table.captured(pocket, ball.x, ball.z)) continue
 
             ball.falling = true
             ball.fall = 0f
@@ -422,9 +420,9 @@ class GameWorld(val practice: Boolean = false) {
         private const val MAX_SHOT_SPEED = 6.20
         private const val POWER_EXPONENT = 0.80
 
-        private const val ROLL_DECELERATION = 0.50
-        private const val LINEAR_DRAG = 0.18
-        private const val QUADRATIC_DRAG = 0.008
+        private const val ROLL_DECELERATION = 0.46
+        private const val LINEAR_DRAG = 0.26
+        private const val QUADRATIC_DRAG = 0.040
 
         private const val CUSHION_RESTITUTION = 0.88
         private const val CUSHION_FRICTION = 0.99
@@ -432,7 +430,7 @@ class GameWorld(val practice: Boolean = false) {
         private const val STOP_SPEED = 0.008
         private const val FALL_DURATION = 0.45
 
-        private const val SIDE_SPIN_CURVE = 0.38
+        private const val SIDE_SPIN_CURVE = 0.22
         private const val CUSHION_SPIN = 0.38
         private const val DRAW_FOLLOW_GAIN = 0.80
 

@@ -61,13 +61,14 @@ class SpinAndPocketTest {
     }
 
     @Test
-    fun `a ball outside the pocket radius is not captured`() {
+    fun `a ball on the cloth outside the mouth is not captured`() {
         val world = GameWorld()
         val ball = world.balls[1]
         ball.active = true
-        ball.x = 1.27 + 0.080
-        ball.z = 0.635
-        ball.vx = -4.5
+        ball.x = 1.20
+        ball.z = 0.60
+        ball.vx = 0.0
+        ball.vz = 0.0
         val potted = world.pocketed(ball)
         assertFalse(potted)
         assertFalse(ball.falling)
