@@ -4,6 +4,10 @@
   "ops": [
     {
       "op": "delete",
+      "object": "SM_Apron"
+    },
+    {
+      "op": "delete",
       "object": "FLOOR"
     },
     {

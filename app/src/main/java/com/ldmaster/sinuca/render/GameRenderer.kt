@@ -76,6 +76,9 @@ class GameRenderer(
     private var cueMesh: GpuMesh? = null
     private var sphereMesh: GpuMesh? = null
     private var floorMesh: GpuMesh? = null
+    private var backdropMesh: GpuMesh? = null
+    private var shadowMesh: GpuMesh? = null
+    private var shadowTexture = 0
     private var lineBuffer = 0
     private var cueHalfLength = 0.725f
     private var lastFrame = 0L
@@ -89,6 +92,7 @@ class GameRenderer(
     private var uUseTexture = 0
     private var uTexture = 0
     private var uLightPos = 0
+    private var uShadow = 0
     private var uStyle = 0
     private var uUsePattern = 0
     private var uUseLiteral = 0
@@ -116,6 +120,7 @@ class GameRenderer(
         uUseTexture = GLES30.glGetUniformLocation(program, "uUseTexture")
         uTexture = GLES30.glGetUniformLocation(program, "uTexture")
         uLightPos = GLES30.glGetUniformLocation(program, "uLightPos")
+        uShadow = GLES30.glGetUniformLocation(program, "uShadow")
         uStyle = GLES30.glGetUniformLocation(program, "uStyle")
         uUsePattern = GLES30.glGetUniformLocation(program, "uUsePattern")
         uUseLiteral = GLES30.glGetUniformLocation(program, "uUseLiteral")
@@ -144,6 +149,9 @@ class GameRenderer(
 
         sphereMesh = GpuMesh(sphere(Table.BALL_RADIUS.toFloat(), segments = 64, rings = 48))
         floorMesh = GpuMesh(floor())
+        backdropMesh = GpuMesh(backdrop())
+        shadowMesh = GpuMesh(shadowPlane())
+        shadowTexture = createShadowTexture()
         for (number in 0..15) ballTextures[number] = createBallTexture(number)
         if (textureQuality != TextureQuality.PROCEDURAL) detailTexture = loadDetailTexture()
 
@@ -232,7 +240,15 @@ class GameRenderer(
         GLES30.glUseProgram(program)
         GLES30.glUniform3f(uEye, eye[0], eye[1], eye[2])
         GLES30.glUniform3f(uLightPos, 0.95f, 2.35f, -0.85f)
+        drawMesh(backdropMesh, viewProjection, IDENTITY, useVertexColor = false, stripe = false, color = WHITE)
         drawMesh(floorMesh, viewProjection, IDENTITY, useVertexColor = false, stripe = false, color = WHITE)
+        drawMesh(
+            shadowMesh, viewProjection, IDENTITY,
+            useVertexColor = false, stripe = false, color = WHITE,
+            textureId = shadowTexture,
+            useTexture = true,
+            useShadow = true
+        )
         drawMesh(
             tableMesh, viewProjection, IDENTITY,
             useVertexColor = false, stripe = false, color = WHITE,
@@ -462,7 +478,8 @@ class GameRenderer(
         textureId: Int = 0,
         useTexture: Boolean = false,
         useLiteral: Boolean = false,
-        usePattern: Boolean = false
+        usePattern: Boolean = false,
+        useShadow: Boolean = false
     ) {
         if (mesh == null) return
         GLES30.glUniformMatrix4fv(uMvp, 1, false, mvp, 0)
@@ -472,6 +489,7 @@ class GameRenderer(
         GLES30.glUniform1f(uUseTexture, if (useTexture) 1f else 0f)
         GLES30.glUniform1f(uUseLiteral, if (useLiteral) 1f else 0f)
         GLES30.glUniform1f(uUsePattern, if (usePattern) 1f else 0f)
+        GLES30.glUniform1f(uShadow, if (useShadow) 1f else 0f)
         GLES30.glUniform1f(uStyle, textureStyle.ordinal.toFloat())
         val strength = when (textureQuality) {
             TextureQuality.DETAILED_540 -> 0.8f
@@ -702,6 +720,88 @@ class GameRenderer(
         )
     }
 
+    private fun backdrop(): MeshData {
+        val width = 18f
+        val height = 7f
+        val z = -4.8f
+        val y0 = 0f
+        val y1 = height
+        return MeshData(
+            floatArrayOf(
+                -width, y0, z,
+                width, y0, z,
+                width, y1, z,
+                -width, y1, z
+            ),
+            floatArrayOf(
+                0f, 0f, 1f,
+                0f, 0f, 1f,
+                0f, 0f, 1f,
+                0f, 0f, 1f
+            ),
+            floatArrayOf(
+                0.018f, 0.022f, 0.030f,
+                0.018f, 0.022f, 0.030f,
+                0.018f, 0.022f, 0.030f,
+                0.018f, 0.022f, 0.030f
+            ),
+            shortArrayOf(0, 1, 2, 0, 2, 3),
+            floatArrayOf(0f, 0f, 1f, 0f, 1f, 1f, 0f, 1f)
+        )
+    }
+
+    private fun shadowPlane(): MeshData {
+        val x = 2.3f
+        val z = 1.55f
+        return MeshData(
+            floatArrayOf(
+                -x, 0.006f, -z,
+                x, 0.006f, -z,
+                x, 0.006f, z,
+                -x, 0.006f, z
+            ),
+            floatArrayOf(
+                0f, 1f, 0f,
+                0f, 1f, 0f,
+                0f, 1f, 0f,
+                0f, 1f, 0f
+            ),
+            floatArrayOf(
+                1f, 1f, 1f,
+                1f, 1f, 1f,
+                1f, 1f, 1f,
+                1f, 1f, 1f
+            ),
+            shortArrayOf(0, 1, 2, 0, 2, 3),
+            floatArrayOf(0f, 0f, 1f, 0f, 1f, 1f, 0f, 1f)
+        )
+    }
+
+    private fun createShadowTexture(): Int {
+        val size = 256
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        paint.shader = android.graphics.RadialGradient(
+            size / 2f, size / 2f, size / 2f,
+            intArrayOf(Color.argb(190, 0, 0, 0), Color.argb(0, 0, 0, 0)),
+            floatArrayOf(0.25f, 1f),
+            android.graphics.Shader.TileMode.CLAMP
+        )
+        canvas.drawCircle(size / 2f, size / 2f, size / 2f, paint)
+        val ids = IntArray(1)
+        GLES30.glGenTextures(1, ids, 0)
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, ids[0])
+        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_LINEAR)
+        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR)
+        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE)
+        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_CLAMP_TO_EDGE)
+        GLUtils.texImage2D(GLES30.GL_TEXTURE_2D, 0, bitmap, 0)
+        bitmap.recycle()
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
+        return ids[0]
+    }
+
     private fun floor(): MeshData {
         val size = 9f
         return MeshData(
@@ -882,6 +982,7 @@ uniform float uUseTexture;
 uniform float uStyle;
 uniform float uUsePattern;
 uniform float uUseLiteral;
+uniform float uShadow;
 uniform float uDetailStrength;
 uniform float uDetailScale;
 uniform float uDetailBase;
@@ -920,6 +1021,11 @@ float fbm(vec2 p) {
 }
 
 void main() {
+    if (uShadow > 0.5) {
+        vec4 s = texture(uTexture, vUv);
+        fragColor = vec4(0.0, 0.0, 0.0, s.a * 0.75);
+        return;
+    }
     vec3 base;
     if (uUseLiteral > 0.5) {
         base = mix(vColor, uColor, uUseColor);
@@ -948,14 +1054,23 @@ void main() {
         float height = d.r;
         float roughness = d.g;
         float ao = d.b;
-        base *= 1.0 + (height - 0.5) * 0.90 * uDetailStrength * uDetailBase;
+        float maxBase = max(base.r, max(base.g, base.b));
+        float minBase = min(base.r, min(base.g, base.b));
+        float saturation = (maxBase - minBase) / max(maxBase, 0.001);
+        float clothGreen = step(base.r * 1.15, base.g) * step(base.b * 1.15, base.g);
+        float clothBlue = step(base.r * 1.15, base.b) * step(base.g * 1.05, base.b);
+        float clothRed = step(base.g * 1.8, base.r) * step(base.b * 1.8, base.r) *
+            step(0.35, saturation);
+        float cloth = clamp(clothGreen + clothBlue + clothRed, 0.0, 1.0);
+        float relief = 1.0 - cloth * 0.92;
+        base *= 1.0 + (height - 0.5) * 0.90 * uDetailStrength * uDetailBase * relief;
         base *= 0.85 + 0.15 * ao;
         n = normalize(n + vec3(
-            (height - 0.5) * 0.80 * uDetailStrength,
+            (height - 0.5) * 0.80 * uDetailStrength * relief,
             0.0,
-            (roughness - 0.5) * 0.50 * uDetailStrength
+            (roughness - 0.5) * 0.50 * uDetailStrength * relief
         ));
-        mapRoughness = roughness;
+        mapRoughness = mix(roughness, 0.65, cloth);
     } else if (uUsePattern > 0.5) {
         vec3 p = vWorld * 10.0;
         float grain = sin(p.x * 55.0 + fbm(p.xz * 2.5) * 9.0);
@@ -986,9 +1101,14 @@ void main() {
         n = normalize(n + vec3(grain * bump * 0.060, 0.0, weave * bump * 0.060));
     }
     vec3 l = normalize(vec3(0.35, 1.0, 0.25));
+    vec3 fillDir = normalize(vec3(-0.55, 0.55, -0.35));
+    vec3 rimDir = normalize(vec3(-0.25, 0.45, -0.85));
     vec3 v = normalize(uEye - vWorld);
     vec3 h = normalize(l + v);
     float diffuse = max(dot(n, l), 0.0);
+    float fill = max(dot(n, fillDir), 0.0) * 0.22;
+    float rim = pow(1.0 - max(dot(n, v), 0.0), 2.0) *
+        max(dot(n, rimDir), 0.0) * 0.35;
     float luminance = dot(base, vec3(0.2126, 0.7152, 0.0722));
     float gloss = clamp(luminance * 5.0, 0.0, 1.0) *
         mix(1.0, 0.55, mapRoughness);
@@ -1003,7 +1123,7 @@ void main() {
         0.95 * attenuation * mix(0.05, 1.0, gloss);
 
     float specular = pow(max(dot(n, h), 0.0), 56.0) * 0.35 * mix(0.04, 1.0, gloss);
-    vec3 lit = base * (0.42 + 0.78 * diffuse + 0.25 * pointDiffuse) +
+    vec3 lit = base * (0.18 + 0.82 * diffuse + fill + 0.14 * rim + 0.22 * pointDiffuse) +
         vec3(specular + pointSpecular);
     fragColor = vec4(pow(clamp(lit, 0.0, 1.0), vec3(1.0 / 2.2)), 1.0);
 }

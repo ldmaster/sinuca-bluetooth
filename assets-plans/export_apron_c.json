@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0.0",
+  "notes": "export theme c table with the new apron",
+  "ops": [
+    {
+      "op": "delete",
+      "object": "FLOOR"
+    },
+    {
+      "op": "delete",
+      "object": "BACKDROP"
+    },
+    {
+      "op": "export",
+      "path": "artifacts/table_c.glb",
+      "format": "glb"
+    }
+  ]
+}
