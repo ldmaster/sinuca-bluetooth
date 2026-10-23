@@ -16,8 +16,8 @@ OUTER_X = 1.465
 OUTER_Z = 0.830
 INNER_X = 1.270
 INNER_Z = 0.635
-TOP = 0.660
-BOTTOM = 0.540
+TOP = 0.600
+BOTTOM = 0.480
 
 
 def apply_material(obj, *names):
@@ -59,23 +59,23 @@ thickness_z = OUTER_Z - INNER_Z
 
 front = panel(
     "APRON_FRONT",
-    (0.0, mid_y, -(INNER_Z + OUTER_Z) * 0.5),
-    (OUTER_X * 2.0, height, thickness_z),
+    (0.0, -(INNER_Z + OUTER_Z) * 0.5, mid_y),
+    (OUTER_X * 2.0, thickness_z, height),
 )
 back = panel(
     "APRON_BACK",
-    (0.0, mid_y, (INNER_Z + OUTER_Z) * 0.5),
-    (OUTER_X * 2.0, height, thickness_z),
+    (0.0, (INNER_Z + OUTER_Z) * 0.5, mid_y),
+    (OUTER_X * 2.0, thickness_z, height),
 )
 left = panel(
     "APRON_LEFT",
-    (-(INNER_X + OUTER_X) * 0.5, mid_y, 0.0),
-    (thickness_x, height, INNER_Z * 2.0),
+    (-(INNER_X + OUTER_X) * 0.5, 0.0, mid_y),
+    (thickness_x, INNER_Z * 2.0, height),
 )
 right = panel(
     "APRON_RIGHT",
-    ((INNER_X + OUTER_X) * 0.5, mid_y, 0.0),
-    (thickness_x, height, INNER_Z * 2.0),
+    ((INNER_X + OUTER_X) * 0.5, 0.0, mid_y),
+    (thickness_x, INNER_Z * 2.0, height),
 )
 
 bpy.ops.object.select_all(action="DESELECT")
@@ -91,15 +91,15 @@ apply_material(apron, "MAT_Wood", "MAT_Frame", "MAT_Steel")
 reveal_parts = []
 reveal_y = TOP + 0.004
 for zpos in (-OUTER_Z, OUTER_Z):
-    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0.0, reveal_y, zpos))
+    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0.0, zpos, reveal_y))
     obj = bpy.context.active_object
-    obj.scale = (OUTER_X * 2.0, 0.008, 0.010)
+    obj.scale = (OUTER_X * 2.0, 0.010, 0.008)
     bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
     reveal_parts.append(obj)
 for xpos in (-OUTER_X, OUTER_X):
-    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(xpos, reveal_y, 0.0))
+    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(xpos, 0.0, reveal_y))
     obj = bpy.context.active_object
-    obj.scale = (0.010, 0.008, OUTER_Z * 2.0)
+    obj.scale = (0.010, OUTER_Z * 2.0, 0.008)
     bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
     reveal_parts.append(obj)
 bpy.ops.object.select_all(action="DESELECT")
@@ -117,7 +117,7 @@ for side in (-1.0, 1.0):
         vertices=32,
         radius=0.042,
         depth=0.010,
-        location=(0.0, mid_y, side * (OUTER_Z + 0.002)),
+        location=(0.0, side * (OUTER_Z + 0.002), mid_y),
         rotation=(math.pi / 2.0, 0.0, 0.0),
     )
     medallion = bpy.context.active_object
