@@ -4,6 +4,9 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.AlertDialog
+import android.app.Dialog
+import android.graphics.drawable.Drawable
+import android.widget.ImageView
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.content.BroadcastReceiver
@@ -261,20 +264,62 @@ class MainActivity : Activity() {
     }
 
     private fun chooseTexture() {
-        val textures = TableTexture.entries
-        val labels = textures.map { "${it.label} — ${it.description}" }.toTypedArray()
-        AlertDialog.Builder(this)
-            .setTitle("Textura 4K")
-            .setSingleChoiceItems(labels, textures.indexOf(tableTexture)) { dialog, which ->
-                tableTexture = textures[which]
-                getSharedPreferences(TableTexture.PREFS, MODE_PRIVATE)
-                    .edit()
-                    .putString(TableTexture.KEY, tableTexture.key)
-                    .apply()
-                textureButton.text = "Textura 4K · ${tableTexture.label}"
-                dialog.dismiss()
+        val dialog = Dialog(this)
+        val scroll = ScrollView(this)
+        val column = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(18), dp(18), dp(18))
+        }
+        column.addView(text("Texturas 4K · toque para escolher", 18f, "#F2F6FA", bold = true))
+        for (theme in TableTheme.entries) {
+            column.addView(
+                text(theme.label, 13f, "#7FD1A6", bold = true).apply {
+                    setPadding(0, dp(14), 0, dp(6))
+                }
+            )
+            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            for ((index, texture) in TableTexture.entries.withIndex()) {
+                val card = LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(dp(4), dp(2), dp(4), dp(6))
+                }
+                val image = ImageView(this).apply {
+                    layoutParams = LinearLayout.LayoutParams(dp(74), dp(52))
+                    scaleType = ImageView.ScaleType.CENTER_CROP
+                }
+                runCatching {
+                    assets.open("previews/p${index + 1}_${theme.key}.jpg").use { stream ->
+                        image.setImageDrawable(Drawable.createFromStream(stream, null))
+                    }
+                }
+                card.addView(image)
+                card.addView(text(texture.label, 8f, "#C7D2DE"))
+                card.setOnClickListener {
+                    selectLook(theme, texture)
+                    dialog.dismiss()
+                }
+                row.addView(card)
             }
-            .show()
+            column.addView(row)
+        }
+        scroll.addView(column)
+        dialog.setContentView(scroll)
+        dialog.show()
+    }
+
+    private fun selectLook(theme: TableTheme, texture: TableTexture) {
+        tableTheme = theme
+        tableTexture = texture
+        getSharedPreferences(TableTheme.PREFS, MODE_PRIVATE)
+            .edit()
+            .putString(TableTheme.KEY, theme.key)
+            .apply()
+        getSharedPreferences(TableTexture.PREFS, MODE_PRIVATE)
+            .edit()
+            .putString(TableTexture.KEY, texture.key)
+            .apply()
+        themeButton.text = "Tema da mesa · ${theme.label}"
+        textureButton.text = "Textura 4K · ${texture.label}"
     }
 
     private fun chooseQuality() {
