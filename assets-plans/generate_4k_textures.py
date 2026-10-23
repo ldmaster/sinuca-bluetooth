@@ -124,7 +124,7 @@ def build(style, size, tag):
     png(os.path.join(OUT, "detail_%s_%s.png" % (style, tag)), rgb)
 
 
-for tag, size in (("2k", 2048), ("1080", 1080)):
+for tag, size in (("2k", 2048), ("1080", 1080), ("720", 720), ("540", 540)):
     for name in ("scan", "wear", "clean", "procedural", "atlas"):
         build(name, size, tag)
 print("done")

@@ -474,16 +474,20 @@ class GameRenderer(
         GLES30.glUniform1f(uUsePattern, if (usePattern) 1f else 0f)
         GLES30.glUniform1f(uStyle, textureStyle.ordinal.toFloat())
         val strength = when (textureQuality) {
+            TextureQuality.DETAILED_540 -> 0.8f
+            TextureQuality.DETAILED_720 -> 0.9f
             TextureQuality.DETAILED_1080 -> 1.0f
             TextureQuality.DETAILED_2K -> 1.1f
             else -> 1.0f
         }
         val scale = when (textureQuality) {
+            TextureQuality.DETAILED_540, TextureQuality.DETAILED_720,
             TextureQuality.DETAILED_1080 -> 1.0f
             TextureQuality.DETAILED_2K -> 1.5f
             else -> 2.0f
         }
         val baseMix = when (textureQuality) {
+            TextureQuality.DETAILED_540, TextureQuality.DETAILED_720,
             TextureQuality.DETAILED_1080 -> 0.0f
             TextureQuality.DETAILED_2K -> 0.25f
             else -> 0.5f
@@ -546,6 +550,8 @@ class GameRenderer(
 
     private fun loadDetailTexture(): Int {
         val suffix = when (textureQuality) {
+            TextureQuality.DETAILED_540 -> "540"
+            TextureQuality.DETAILED_720 -> "720"
             TextureQuality.DETAILED_1080 -> "1080"
             TextureQuality.DETAILED_2K -> "2k"
             else -> "4k"

@@ -10,6 +10,8 @@ enum class TextureQuality(
     val label: String,
     val description: String
 ) {
+    DETAILED_540("540", "540 detalhado", "Mapa 540², para comparar o ganho de resolução"),
+    DETAILED_720("720", "720 detalhado", "Mapa 720², intermediário"),
     DETAILED_1080("1080", "1080 detalhado", "Mapa 1080² com relevo natural, sem topografia"),
     DETAILED_2K("2k", "2K detalhado", "Mapa 2048² com relevo ampliado, visível no celular"),
     LITERAL("literal", "4K literal", "Mapas 4096² reais embutidos no APK"),
