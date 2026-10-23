@@ -61,7 +61,12 @@ class GameActivity : Activity() {
                 is NetMessage.Shot -> {
                     surface.queueEvent {
                         if (world.canShoot(1 - localPlayer)) {
-                            world.shoot(message.angle, message.power)
+                            world.shoot(
+                                message.angle,
+                                message.power,
+                                message.strikeX,
+                                message.strikeY
+                            )
                         }
                     }
                 }
@@ -109,6 +114,14 @@ class GameActivity : Activity() {
                 override fun onCamera() {
                     surface.queueEvent { renderer.cycleCamera() }
                 }
+
+                override fun onTrajectoryToggle(enabled: Boolean) {
+                    renderer.showTrajectory = enabled
+                }
+
+                override fun onShotParams(power: Float, strikeX: Float, strikeY: Float) {
+                    renderer.setShotParams(power, strikeX, strikeY)
+                }
             }
         )
 
@@ -145,12 +158,14 @@ class GameActivity : Activity() {
         var angle = 0.0
         synchronized(world) { angle = world.aimAngle }
         val power = hud.power.toDouble()
+        val strikeX = hud.strikeX.toDouble()
+        val strikeY = hud.strikeY.toDouble()
         when {
-            practice -> surface.queueEvent { world.shoot(angle, power) }
-            localPlayer == 0 -> surface.queueEvent { world.shoot(angle, power) }
+            practice -> surface.queueEvent { world.shoot(angle, power, strikeX, strikeY) }
+            localPlayer == 0 -> surface.queueEvent { world.shoot(angle, power, strikeX, strikeY) }
             else -> {
-                Session.service?.send(Wire.shot(angle, power))
-                surface.queueEvent { world.shoot(angle, power) }
+                Session.service?.send(Wire.shot(angle, power, strikeX, strikeY))
+                surface.queueEvent { world.shoot(angle, power, strikeX, strikeY) }
             }
         }
     }
@@ -161,8 +176,6 @@ class GameActivity : Activity() {
             turn = snapshot.turn,
             localPlayer = localPlayer,
             practice = practice,
-            remaining0 = snapshot.remaining0,
-            remaining1 = snapshot.remaining1,
             potted0 = snapshot.potted0,
             potted1 = snapshot.potted1,
             winner = snapshot.winner,

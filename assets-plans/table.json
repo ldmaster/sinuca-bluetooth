@@ -1,39 +1,2555 @@
 {
   "schema_version": "1.0.0",
-  "notes": "Low-poly 8-ball table: 2.54 x 1.27 m cloth, split rails with six pocket openings, apron, four legs.",
+  "notes": "High-detail 8-ball table with real pocket holes, wells, nets, rims, cushions and beveled rails.",
   "ops": [
-    { "op": "clear" },
-    { "op": "primitive", "kind": "cube", "name": "SM_Cloth", "size": 1.0, "location": [0, 0, 0.73], "scale": [2.54, 1.27, 0.04] },
-    { "op": "primitive", "kind": "cube", "name": "SM_Apron", "size": 1.0, "location": [0, 0, 0.65], "scale": [2.74, 1.47, 0.12] },
-    { "op": "primitive", "kind": "cube", "name": "SM_RailL1", "size": 1.0, "location": [0.635, 0.685, 0.78], "scale": [1.13, 0.10, 0.07] },
-    { "op": "primitive", "kind": "cube", "name": "SM_RailL2", "size": 1.0, "location": [-0.635, 0.685, 0.78], "scale": [1.13, 0.10, 0.07] },
-    { "op": "primitive", "kind": "cube", "name": "SM_RailL3", "size": 1.0, "location": [0.635, -0.685, 0.78], "scale": [1.13, 0.10, 0.07] },
-    { "op": "primitive", "kind": "cube", "name": "SM_RailL4", "size": 1.0, "location": [-0.635, -0.685, 0.78], "scale": [1.13, 0.10, 0.07] },
-    { "op": "primitive", "kind": "cube", "name": "SM_RailS1", "size": 1.0, "location": [1.32, 0, 0.78], "scale": [0.10, 1.12, 0.07] },
-    { "op": "primitive", "kind": "cube", "name": "SM_RailS2", "size": 1.0, "location": [-1.32, 0, 0.78], "scale": [0.10, 1.12, 0.07] },
-    { "op": "join", "objects": ["SM_RailL1", "SM_RailL2", "SM_RailL3", "SM_RailL4", "SM_RailS1", "SM_RailS2"], "name": "SM_Rails" },
-    { "op": "primitive", "kind": "cylinder", "name": "SM_Pocket1", "size": 0.14, "location": [1.27, 0.635, 0.7505], "scale": [1, 1, 0.06] },
-    { "op": "primitive", "kind": "cylinder", "name": "SM_Pocket2", "size": 0.14, "location": [1.27, -0.635, 0.7505], "scale": [1, 1, 0.06] },
-    { "op": "primitive", "kind": "cylinder", "name": "SM_Pocket3", "size": 0.14, "location": [-1.27, 0.635, 0.7505], "scale": [1, 1, 0.06] },
-    { "op": "primitive", "kind": "cylinder", "name": "SM_Pocket4", "size": 0.14, "location": [-1.27, -0.635, 0.7505], "scale": [1, 1, 0.06] },
-    { "op": "primitive", "kind": "cylinder", "name": "SM_Pocket5", "size": 0.14, "location": [0, 0.635, 0.7505], "scale": [1, 1, 0.06] },
-    { "op": "primitive", "kind": "cylinder", "name": "SM_Pocket6", "size": 0.14, "location": [0, -0.635, 0.7505], "scale": [1, 1, 0.06] },
-    { "op": "join", "objects": ["SM_Pocket1", "SM_Pocket2", "SM_Pocket3", "SM_Pocket4", "SM_Pocket5", "SM_Pocket6"], "name": "SM_Pockets" },
-    { "op": "primitive", "kind": "cube", "name": "SM_Leg1", "size": 1.0, "location": [1.20, 0.55, 0.295], "scale": [0.10, 0.10, 0.59] },
-    { "op": "primitive", "kind": "cube", "name": "SM_Leg2", "size": 1.0, "location": [1.20, -0.55, 0.295], "scale": [0.10, 0.10, 0.59] },
-    { "op": "primitive", "kind": "cube", "name": "SM_Leg3", "size": 1.0, "location": [-1.20, 0.55, 0.295], "scale": [0.10, 0.10, 0.59] },
-    { "op": "primitive", "kind": "cube", "name": "SM_Leg4", "size": 1.0, "location": [-1.20, -0.55, 0.295], "scale": [0.10, 0.10, 0.59] },
-    { "op": "join", "objects": ["SM_Leg1", "SM_Leg2", "SM_Leg3", "SM_Leg4"], "name": "SM_Legs" },
-    { "op": "material", "object": "SM_Cloth", "name": "MAT_Cloth", "color": [0.02, 0.28, 0.12, 1.0], "roughness": 0.95 },
-    { "op": "material", "object": "SM_Rails", "name": "MAT_Wood", "color": [0.22, 0.09, 0.03, 1.0], "roughness": 0.45 },
-    { "op": "material", "object": "SM_Apron", "name": "MAT_Apron", "color": [0.14, 0.05, 0.02, 1.0], "roughness": 0.55 },
-    { "op": "material", "object": "SM_Pockets", "name": "MAT_Pocket", "color": [0.01, 0.01, 0.01, 1.0], "roughness": 1.0 },
-    { "op": "material", "object": "SM_Legs", "name": "MAT_Legs", "color": [0.10, 0.04, 0.02, 1.0], "roughness": 0.6 },
-    { "op": "camera", "name": "CAM-main", "location": [3.4, -3.8, 2.8], "look_at": [0, 0, 0.6], "lens": 50 },
-    { "op": "light", "kind": "sun", "name": "LGT-key", "location": [2.5, -2.5, 6.0], "energy": 4.0 },
-    { "op": "light", "kind": "area", "name": "LGT-fill", "location": [-2.5, 2.0, 3.0], "energy": 250.0 },
-    { "op": "render", "path": "renders/preview.png", "resolution_x": 900, "resolution_y": 700, "engine": "eevee", "samples": 32, "camera": "CAM-main" },
-    { "op": "export", "path": "artifacts/table.glb", "format": "glb" },
-    { "op": "save", "path": "output.blend" }
+    {
+      "op": "clear"
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "SM_Cloth",
+      "size": 1.0,
+      "location": [
+        0,
+        0,
+        0.73
+      ],
+      "scale": [
+        2.54,
+        1.27,
+        0.04
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "CUT_CLOTH_0",
+      "size": 0.146,
+      "location": [
+        1.27,
+        0.635,
+        0.75
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "boolean",
+      "object": "SM_Cloth",
+      "operand": "CUT_CLOTH_0",
+      "operation": "difference",
+      "apply": true
+    },
+    {
+      "op": "delete",
+      "object": "CUT_CLOTH_0"
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "CUT_CLOTH_1",
+      "size": 0.146,
+      "location": [
+        1.27,
+        -0.635,
+        0.75
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "boolean",
+      "object": "SM_Cloth",
+      "operand": "CUT_CLOTH_1",
+      "operation": "difference",
+      "apply": true
+    },
+    {
+      "op": "delete",
+      "object": "CUT_CLOTH_1"
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "CUT_CLOTH_2",
+      "size": 0.146,
+      "location": [
+        -1.27,
+        0.635,
+        0.75
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "boolean",
+      "object": "SM_Cloth",
+      "operand": "CUT_CLOTH_2",
+      "operation": "difference",
+      "apply": true
+    },
+    {
+      "op": "delete",
+      "object": "CUT_CLOTH_2"
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "CUT_CLOTH_3",
+      "size": 0.146,
+      "location": [
+        -1.27,
+        -0.635,
+        0.75
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "boolean",
+      "object": "SM_Cloth",
+      "operand": "CUT_CLOTH_3",
+      "operation": "difference",
+      "apply": true
+    },
+    {
+      "op": "delete",
+      "object": "CUT_CLOTH_3"
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "CUT_CLOTH_4",
+      "size": 0.146,
+      "location": [
+        0,
+        0.635,
+        0.75
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "boolean",
+      "object": "SM_Cloth",
+      "operand": "CUT_CLOTH_4",
+      "operation": "difference",
+      "apply": true
+    },
+    {
+      "op": "delete",
+      "object": "CUT_CLOTH_4"
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "CUT_CLOTH_5",
+      "size": 0.146,
+      "location": [
+        0,
+        -0.635,
+        0.75
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "boolean",
+      "object": "SM_Cloth",
+      "operand": "CUT_CLOTH_5",
+      "operation": "difference",
+      "apply": true
+    },
+    {
+      "op": "delete",
+      "object": "CUT_CLOTH_5"
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "WELL_0",
+      "size": 0.15,
+      "location": [
+        1.27,
+        0.635,
+        0.675
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "WELLCUT_0",
+      "size": 0.126,
+      "location": [
+        1.27,
+        0.635,
+        0.72
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "boolean",
+      "object": "WELL_0",
+      "operand": "WELLCUT_0",
+      "operation": "difference",
+      "apply": true
+    },
+    {
+      "op": "delete",
+      "object": "WELLCUT_0"
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "WELL_1",
+      "size": 0.15,
+      "location": [
+        1.27,
+        -0.635,
+        0.675
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "WELLCUT_1",
+      "size": 0.126,
+      "location": [
+        1.27,
+        -0.635,
+        0.72
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "boolean",
+      "object": "WELL_1",
+      "operand": "WELLCUT_1",
+      "operation": "difference",
+      "apply": true
+    },
+    {
+      "op": "delete",
+      "object": "WELLCUT_1"
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "WELL_2",
+      "size": 0.15,
+      "location": [
+        -1.27,
+        0.635,
+        0.675
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "WELLCUT_2",
+      "size": 0.126,
+      "location": [
+        -1.27,
+        0.635,
+        0.72
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "boolean",
+      "object": "WELL_2",
+      "operand": "WELLCUT_2",
+      "operation": "difference",
+      "apply": true
+    },
+    {
+      "op": "delete",
+      "object": "WELLCUT_2"
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "WELL_3",
+      "size": 0.15,
+      "location": [
+        -1.27,
+        -0.635,
+        0.675
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "WELLCUT_3",
+      "size": 0.126,
+      "location": [
+        -1.27,
+        -0.635,
+        0.72
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "boolean",
+      "object": "WELL_3",
+      "operand": "WELLCUT_3",
+      "operation": "difference",
+      "apply": true
+    },
+    {
+      "op": "delete",
+      "object": "WELLCUT_3"
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "WELL_4",
+      "size": 0.15,
+      "location": [
+        0,
+        0.635,
+        0.675
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "WELLCUT_4",
+      "size": 0.126,
+      "location": [
+        0,
+        0.635,
+        0.72
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "boolean",
+      "object": "WELL_4",
+      "operand": "WELLCUT_4",
+      "operation": "difference",
+      "apply": true
+    },
+    {
+      "op": "delete",
+      "object": "WELLCUT_4"
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "WELL_5",
+      "size": 0.15,
+      "location": [
+        0,
+        -0.635,
+        0.675
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "WELLCUT_5",
+      "size": 0.126,
+      "location": [
+        0,
+        -0.635,
+        0.72
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "boolean",
+      "object": "WELL_5",
+      "operand": "WELLCUT_5",
+      "operation": "difference",
+      "apply": true
+    },
+    {
+      "op": "delete",
+      "object": "WELLCUT_5"
+    },
+    {
+      "op": "join",
+      "objects": [
+        "WELL_0",
+        "WELL_1",
+        "WELL_2",
+        "WELL_3",
+        "WELL_4",
+        "WELL_5"
+      ],
+      "name": "SM_PocketWells"
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETX_0_1",
+      "size": 1.0,
+      "location": [
+        1.27,
+        0.603,
+        0.695
+      ],
+      "scale": [
+        0.112,
+        0.0035,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETX_0_2",
+      "size": 1.0,
+      "location": [
+        1.27,
+        0.619,
+        0.695
+      ],
+      "scale": [
+        0.112,
+        0.0035,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETX_0_3",
+      "size": 1.0,
+      "location": [
+        1.27,
+        0.635,
+        0.695
+      ],
+      "scale": [
+        0.112,
+        0.0035,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETX_0_4",
+      "size": 1.0,
+      "location": [
+        1.27,
+        0.651,
+        0.695
+      ],
+      "scale": [
+        0.112,
+        0.0035,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETX_0_5",
+      "size": 1.0,
+      "location": [
+        1.27,
+        0.667,
+        0.695
+      ],
+      "scale": [
+        0.112,
+        0.0035,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETY_0_1",
+      "size": 1.0,
+      "location": [
+        1.238,
+        0.635,
+        0.695
+      ],
+      "scale": [
+        0.0035,
+        0.112,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETY_0_2",
+      "size": 1.0,
+      "location": [
+        1.254,
+        0.635,
+        0.695
+      ],
+      "scale": [
+        0.0035,
+        0.112,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETY_0_3",
+      "size": 1.0,
+      "location": [
+        1.27,
+        0.635,
+        0.695
+      ],
+      "scale": [
+        0.0035,
+        0.112,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETY_0_4",
+      "size": 1.0,
+      "location": [
+        1.286,
+        0.635,
+        0.695
+      ],
+      "scale": [
+        0.0035,
+        0.112,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETY_0_5",
+      "size": 1.0,
+      "location": [
+        1.302,
+        0.635,
+        0.695
+      ],
+      "scale": [
+        0.0035,
+        0.112,
+        0.0035
+      ]
+    },
+    {
+      "op": "join",
+      "objects": [
+        "NETX_0_1",
+        "NETX_0_2",
+        "NETX_0_3",
+        "NETX_0_4",
+        "NETX_0_5",
+        "NETY_0_1",
+        "NETY_0_2",
+        "NETY_0_3",
+        "NETY_0_4",
+        "NETY_0_5"
+      ],
+      "name": "SM_Net0"
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETX_1_1",
+      "size": 1.0,
+      "location": [
+        1.27,
+        -0.667,
+        0.695
+      ],
+      "scale": [
+        0.112,
+        0.0035,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETX_1_2",
+      "size": 1.0,
+      "location": [
+        1.27,
+        -0.651,
+        0.695
+      ],
+      "scale": [
+        0.112,
+        0.0035,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETX_1_3",
+      "size": 1.0,
+      "location": [
+        1.27,
+        -0.635,
+        0.695
+      ],
+      "scale": [
+        0.112,
+        0.0035,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETX_1_4",
+      "size": 1.0,
+      "location": [
+        1.27,
+        -0.619,
+        0.695
+      ],
+      "scale": [
+        0.112,
+        0.0035,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETX_1_5",
+      "size": 1.0,
+      "location": [
+        1.27,
+        -0.603,
+        0.695
+      ],
+      "scale": [
+        0.112,
+        0.0035,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETY_1_1",
+      "size": 1.0,
+      "location": [
+        1.238,
+        -0.635,
+        0.695
+      ],
+      "scale": [
+        0.0035,
+        0.112,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETY_1_2",
+      "size": 1.0,
+      "location": [
+        1.254,
+        -0.635,
+        0.695
+      ],
+      "scale": [
+        0.0035,
+        0.112,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETY_1_3",
+      "size": 1.0,
+      "location": [
+        1.27,
+        -0.635,
+        0.695
+      ],
+      "scale": [
+        0.0035,
+        0.112,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETY_1_4",
+      "size": 1.0,
+      "location": [
+        1.286,
+        -0.635,
+        0.695
+      ],
+      "scale": [
+        0.0035,
+        0.112,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETY_1_5",
+      "size": 1.0,
+      "location": [
+        1.302,
+        -0.635,
+        0.695
+      ],
+      "scale": [
+        0.0035,
+        0.112,
+        0.0035
+      ]
+    },
+    {
+      "op": "join",
+      "objects": [
+        "NETX_1_1",
+        "NETX_1_2",
+        "NETX_1_3",
+        "NETX_1_4",
+        "NETX_1_5",
+        "NETY_1_1",
+        "NETY_1_2",
+        "NETY_1_3",
+        "NETY_1_4",
+        "NETY_1_5"
+      ],
+      "name": "SM_Net1"
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETX_2_1",
+      "size": 1.0,
+      "location": [
+        -1.27,
+        0.603,
+        0.695
+      ],
+      "scale": [
+        0.112,
+        0.0035,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETX_2_2",
+      "size": 1.0,
+      "location": [
+        -1.27,
+        0.619,
+        0.695
+      ],
+      "scale": [
+        0.112,
+        0.0035,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETX_2_3",
+      "size": 1.0,
+      "location": [
+        -1.27,
+        0.635,
+        0.695
+      ],
+      "scale": [
+        0.112,
+        0.0035,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETX_2_4",
+      "size": 1.0,
+      "location": [
+        -1.27,
+        0.651,
+        0.695
+      ],
+      "scale": [
+        0.112,
+        0.0035,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETX_2_5",
+      "size": 1.0,
+      "location": [
+        -1.27,
+        0.667,
+        0.695
+      ],
+      "scale": [
+        0.112,
+        0.0035,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETY_2_1",
+      "size": 1.0,
+      "location": [
+        -1.302,
+        0.635,
+        0.695
+      ],
+      "scale": [
+        0.0035,
+        0.112,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETY_2_2",
+      "size": 1.0,
+      "location": [
+        -1.286,
+        0.635,
+        0.695
+      ],
+      "scale": [
+        0.0035,
+        0.112,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETY_2_3",
+      "size": 1.0,
+      "location": [
+        -1.27,
+        0.635,
+        0.695
+      ],
+      "scale": [
+        0.0035,
+        0.112,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETY_2_4",
+      "size": 1.0,
+      "location": [
+        -1.254,
+        0.635,
+        0.695
+      ],
+      "scale": [
+        0.0035,
+        0.112,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETY_2_5",
+      "size": 1.0,
+      "location": [
+        -1.238,
+        0.635,
+        0.695
+      ],
+      "scale": [
+        0.0035,
+        0.112,
+        0.0035
+      ]
+    },
+    {
+      "op": "join",
+      "objects": [
+        "NETX_2_1",
+        "NETX_2_2",
+        "NETX_2_3",
+        "NETX_2_4",
+        "NETX_2_5",
+        "NETY_2_1",
+        "NETY_2_2",
+        "NETY_2_3",
+        "NETY_2_4",
+        "NETY_2_5"
+      ],
+      "name": "SM_Net2"
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETX_3_1",
+      "size": 1.0,
+      "location": [
+        -1.27,
+        -0.667,
+        0.695
+      ],
+      "scale": [
+        0.112,
+        0.0035,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETX_3_2",
+      "size": 1.0,
+      "location": [
+        -1.27,
+        -0.651,
+        0.695
+      ],
+      "scale": [
+        0.112,
+        0.0035,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETX_3_3",
+      "size": 1.0,
+      "location": [
+        -1.27,
+        -0.635,
+        0.695
+      ],
+      "scale": [
+        0.112,
+        0.0035,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETX_3_4",
+      "size": 1.0,
+      "location": [
+        -1.27,
+        -0.619,
+        0.695
+      ],
+      "scale": [
+        0.112,
+        0.0035,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETX_3_5",
+      "size": 1.0,
+      "location": [
+        -1.27,
+        -0.603,
+        0.695
+      ],
+      "scale": [
+        0.112,
+        0.0035,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETY_3_1",
+      "size": 1.0,
+      "location": [
+        -1.302,
+        -0.635,
+        0.695
+      ],
+      "scale": [
+        0.0035,
+        0.112,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETY_3_2",
+      "size": 1.0,
+      "location": [
+        -1.286,
+        -0.635,
+        0.695
+      ],
+      "scale": [
+        0.0035,
+        0.112,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETY_3_3",
+      "size": 1.0,
+      "location": [
+        -1.27,
+        -0.635,
+        0.695
+      ],
+      "scale": [
+        0.0035,
+        0.112,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETY_3_4",
+      "size": 1.0,
+      "location": [
+        -1.254,
+        -0.635,
+        0.695
+      ],
+      "scale": [
+        0.0035,
+        0.112,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETY_3_5",
+      "size": 1.0,
+      "location": [
+        -1.238,
+        -0.635,
+        0.695
+      ],
+      "scale": [
+        0.0035,
+        0.112,
+        0.0035
+      ]
+    },
+    {
+      "op": "join",
+      "objects": [
+        "NETX_3_1",
+        "NETX_3_2",
+        "NETX_3_3",
+        "NETX_3_4",
+        "NETX_3_5",
+        "NETY_3_1",
+        "NETY_3_2",
+        "NETY_3_3",
+        "NETY_3_4",
+        "NETY_3_5"
+      ],
+      "name": "SM_Net3"
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETX_4_1",
+      "size": 1.0,
+      "location": [
+        0,
+        0.603,
+        0.695
+      ],
+      "scale": [
+        0.112,
+        0.0035,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETX_4_2",
+      "size": 1.0,
+      "location": [
+        0,
+        0.619,
+        0.695
+      ],
+      "scale": [
+        0.112,
+        0.0035,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETX_4_3",
+      "size": 1.0,
+      "location": [
+        0,
+        0.635,
+        0.695
+      ],
+      "scale": [
+        0.112,
+        0.0035,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETX_4_4",
+      "size": 1.0,
+      "location": [
+        0,
+        0.651,
+        0.695
+      ],
+      "scale": [
+        0.112,
+        0.0035,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETX_4_5",
+      "size": 1.0,
+      "location": [
+        0,
+        0.667,
+        0.695
+      ],
+      "scale": [
+        0.112,
+        0.0035,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETY_4_1",
+      "size": 1.0,
+      "location": [
+        -0.032,
+        0.635,
+        0.695
+      ],
+      "scale": [
+        0.0035,
+        0.112,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETY_4_2",
+      "size": 1.0,
+      "location": [
+        -0.016,
+        0.635,
+        0.695
+      ],
+      "scale": [
+        0.0035,
+        0.112,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETY_4_3",
+      "size": 1.0,
+      "location": [
+        0.0,
+        0.635,
+        0.695
+      ],
+      "scale": [
+        0.0035,
+        0.112,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETY_4_4",
+      "size": 1.0,
+      "location": [
+        0.016,
+        0.635,
+        0.695
+      ],
+      "scale": [
+        0.0035,
+        0.112,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETY_4_5",
+      "size": 1.0,
+      "location": [
+        0.032,
+        0.635,
+        0.695
+      ],
+      "scale": [
+        0.0035,
+        0.112,
+        0.0035
+      ]
+    },
+    {
+      "op": "join",
+      "objects": [
+        "NETX_4_1",
+        "NETX_4_2",
+        "NETX_4_3",
+        "NETX_4_4",
+        "NETX_4_5",
+        "NETY_4_1",
+        "NETY_4_2",
+        "NETY_4_3",
+        "NETY_4_4",
+        "NETY_4_5"
+      ],
+      "name": "SM_Net4"
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETX_5_1",
+      "size": 1.0,
+      "location": [
+        0,
+        -0.667,
+        0.695
+      ],
+      "scale": [
+        0.112,
+        0.0035,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETX_5_2",
+      "size": 1.0,
+      "location": [
+        0,
+        -0.651,
+        0.695
+      ],
+      "scale": [
+        0.112,
+        0.0035,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETX_5_3",
+      "size": 1.0,
+      "location": [
+        0,
+        -0.635,
+        0.695
+      ],
+      "scale": [
+        0.112,
+        0.0035,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETX_5_4",
+      "size": 1.0,
+      "location": [
+        0,
+        -0.619,
+        0.695
+      ],
+      "scale": [
+        0.112,
+        0.0035,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETX_5_5",
+      "size": 1.0,
+      "location": [
+        0,
+        -0.603,
+        0.695
+      ],
+      "scale": [
+        0.112,
+        0.0035,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETY_5_1",
+      "size": 1.0,
+      "location": [
+        -0.032,
+        -0.635,
+        0.695
+      ],
+      "scale": [
+        0.0035,
+        0.112,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETY_5_2",
+      "size": 1.0,
+      "location": [
+        -0.016,
+        -0.635,
+        0.695
+      ],
+      "scale": [
+        0.0035,
+        0.112,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETY_5_3",
+      "size": 1.0,
+      "location": [
+        0.0,
+        -0.635,
+        0.695
+      ],
+      "scale": [
+        0.0035,
+        0.112,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETY_5_4",
+      "size": 1.0,
+      "location": [
+        0.016,
+        -0.635,
+        0.695
+      ],
+      "scale": [
+        0.0035,
+        0.112,
+        0.0035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "NETY_5_5",
+      "size": 1.0,
+      "location": [
+        0.032,
+        -0.635,
+        0.695
+      ],
+      "scale": [
+        0.0035,
+        0.112,
+        0.0035
+      ]
+    },
+    {
+      "op": "join",
+      "objects": [
+        "NETX_5_1",
+        "NETX_5_2",
+        "NETX_5_3",
+        "NETX_5_4",
+        "NETX_5_5",
+        "NETY_5_1",
+        "NETY_5_2",
+        "NETY_5_3",
+        "NETY_5_4",
+        "NETY_5_5"
+      ],
+      "name": "SM_Net5"
+    },
+    {
+      "op": "join",
+      "objects": [
+        "SM_Net0",
+        "SM_Net1",
+        "SM_Net2",
+        "SM_Net3",
+        "SM_Net4",
+        "SM_Net5"
+      ],
+      "name": "SM_PocketNets"
+    },
+    {
+      "op": "primitive",
+      "kind": "torus",
+      "name": "RIM_0",
+      "size": 0.17,
+      "location": [
+        1.27,
+        0.635,
+        0.753
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "torus",
+      "name": "RIM_1",
+      "size": 0.17,
+      "location": [
+        1.27,
+        -0.635,
+        0.753
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "torus",
+      "name": "RIM_2",
+      "size": 0.17,
+      "location": [
+        -1.27,
+        0.635,
+        0.753
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "torus",
+      "name": "RIM_3",
+      "size": 0.17,
+      "location": [
+        -1.27,
+        -0.635,
+        0.753
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "torus",
+      "name": "RIM_4",
+      "size": 0.17,
+      "location": [
+        0,
+        0.635,
+        0.753
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "torus",
+      "name": "RIM_5",
+      "size": 0.17,
+      "location": [
+        0,
+        -0.635,
+        0.753
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "join",
+      "objects": [
+        "RIM_0",
+        "RIM_1",
+        "RIM_2",
+        "RIM_3",
+        "RIM_4",
+        "RIM_5"
+      ],
+      "name": "SM_PocketRims"
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "RAIL_L0",
+      "size": 1.0,
+      "location": [
+        0.635,
+        0.685,
+        0.78
+      ],
+      "scale": [
+        1.13,
+        0.1,
+        0.07
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "RAIL_L1",
+      "size": 1.0,
+      "location": [
+        -0.635,
+        0.685,
+        0.78
+      ],
+      "scale": [
+        1.13,
+        0.1,
+        0.07
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "RAIL_L2",
+      "size": 1.0,
+      "location": [
+        0.635,
+        -0.685,
+        0.78
+      ],
+      "scale": [
+        1.13,
+        0.1,
+        0.07
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "RAIL_L3",
+      "size": 1.0,
+      "location": [
+        -0.635,
+        -0.685,
+        0.78
+      ],
+      "scale": [
+        1.13,
+        0.1,
+        0.07
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "RAIL_S0",
+      "size": 1.0,
+      "location": [
+        1.32,
+        0,
+        0.78
+      ],
+      "scale": [
+        0.1,
+        1.12,
+        0.07
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "RAIL_S1",
+      "size": 1.0,
+      "location": [
+        -1.32,
+        0,
+        0.78
+      ],
+      "scale": [
+        0.1,
+        1.12,
+        0.07
+      ]
+    },
+    {
+      "op": "join",
+      "objects": [
+        "RAIL_L0",
+        "RAIL_L1",
+        "RAIL_L2",
+        "RAIL_L3",
+        "RAIL_S0",
+        "RAIL_S1"
+      ],
+      "name": "SM_Rails"
+    },
+    {
+      "op": "modifier",
+      "object": "SM_Rails",
+      "kind": "bevel",
+      "params": {
+        "width": 0.008,
+        "segments": 3
+      }
+    },
+    {
+      "op": "apply_modifier",
+      "object": "SM_Rails",
+      "kind": "bevel"
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "CUSH_L0",
+      "size": 1.0,
+      "location": [
+        0.625,
+        0.655,
+        0.765
+      ],
+      "scale": [
+        1.1,
+        0.04,
+        0.035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "CUSH_L1",
+      "size": 1.0,
+      "location": [
+        -0.625,
+        0.655,
+        0.765
+      ],
+      "scale": [
+        1.1,
+        0.04,
+        0.035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "CUSH_L2",
+      "size": 1.0,
+      "location": [
+        0.625,
+        -0.655,
+        0.765
+      ],
+      "scale": [
+        1.1,
+        0.04,
+        0.035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "CUSH_L3",
+      "size": 1.0,
+      "location": [
+        -0.625,
+        -0.655,
+        0.765
+      ],
+      "scale": [
+        1.1,
+        0.04,
+        0.035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "CUSH_S0",
+      "size": 1.0,
+      "location": [
+        1.29,
+        0,
+        0.765
+      ],
+      "scale": [
+        0.04,
+        1.1,
+        0.035
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "CUSH_S1",
+      "size": 1.0,
+      "location": [
+        -1.29,
+        0,
+        0.765
+      ],
+      "scale": [
+        0.04,
+        1.1,
+        0.035
+      ]
+    },
+    {
+      "op": "join",
+      "objects": [
+        "CUSH_L0",
+        "CUSH_L1",
+        "CUSH_L2",
+        "CUSH_L3",
+        "CUSH_S0",
+        "CUSH_S1"
+      ],
+      "name": "SM_Cushions"
+    },
+    {
+      "op": "modifier",
+      "object": "SM_Cushions",
+      "kind": "bevel",
+      "params": {
+        "width": 0.004,
+        "segments": 2
+      }
+    },
+    {
+      "op": "apply_modifier",
+      "object": "SM_Cushions",
+      "kind": "bevel"
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "SM_Apron",
+      "size": 1.0,
+      "location": [
+        0,
+        0,
+        0.65
+      ],
+      "scale": [
+        2.74,
+        1.47,
+        0.12
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "CUT_APRON_0",
+      "size": 0.19,
+      "location": [
+        1.27,
+        0.635,
+        0.65
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "boolean",
+      "object": "SM_Apron",
+      "operand": "CUT_APRON_0",
+      "operation": "difference",
+      "apply": true
+    },
+    {
+      "op": "delete",
+      "object": "CUT_APRON_0"
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "CUT_APRON_1",
+      "size": 0.19,
+      "location": [
+        1.27,
+        -0.635,
+        0.65
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "boolean",
+      "object": "SM_Apron",
+      "operand": "CUT_APRON_1",
+      "operation": "difference",
+      "apply": true
+    },
+    {
+      "op": "delete",
+      "object": "CUT_APRON_1"
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "CUT_APRON_2",
+      "size": 0.19,
+      "location": [
+        -1.27,
+        0.635,
+        0.65
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "boolean",
+      "object": "SM_Apron",
+      "operand": "CUT_APRON_2",
+      "operation": "difference",
+      "apply": true
+    },
+    {
+      "op": "delete",
+      "object": "CUT_APRON_2"
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "CUT_APRON_3",
+      "size": 0.19,
+      "location": [
+        -1.27,
+        -0.635,
+        0.65
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "boolean",
+      "object": "SM_Apron",
+      "operand": "CUT_APRON_3",
+      "operation": "difference",
+      "apply": true
+    },
+    {
+      "op": "delete",
+      "object": "CUT_APRON_3"
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "CUT_APRON_4",
+      "size": 0.19,
+      "location": [
+        0,
+        0.635,
+        0.65
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "boolean",
+      "object": "SM_Apron",
+      "operand": "CUT_APRON_4",
+      "operation": "difference",
+      "apply": true
+    },
+    {
+      "op": "delete",
+      "object": "CUT_APRON_4"
+    },
+    {
+      "op": "primitive",
+      "kind": "cylinder",
+      "name": "CUT_APRON_5",
+      "size": 0.19,
+      "location": [
+        0,
+        -0.635,
+        0.65
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "boolean",
+      "object": "SM_Apron",
+      "operand": "CUT_APRON_5",
+      "operation": "difference",
+      "apply": true
+    },
+    {
+      "op": "delete",
+      "object": "CUT_APRON_5"
+    },
+    {
+      "op": "modifier",
+      "object": "SM_Apron",
+      "kind": "bevel",
+      "params": {
+        "width": 0.008,
+        "segments": 3
+      }
+    },
+    {
+      "op": "apply_modifier",
+      "object": "SM_Apron",
+      "kind": "bevel"
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "LEG_0",
+      "size": 1.0,
+      "location": [
+        1.2,
+        0.55,
+        0.295
+      ],
+      "scale": [
+        0.1,
+        0.1,
+        0.59
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "LEG_1",
+      "size": 1.0,
+      "location": [
+        1.2,
+        -0.55,
+        0.295
+      ],
+      "scale": [
+        0.1,
+        0.1,
+        0.59
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "LEG_2",
+      "size": 1.0,
+      "location": [
+        -1.2,
+        0.55,
+        0.295
+      ],
+      "scale": [
+        0.1,
+        0.1,
+        0.59
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "LEG_3",
+      "size": 1.0,
+      "location": [
+        -1.2,
+        -0.55,
+        0.295
+      ],
+      "scale": [
+        0.1,
+        0.1,
+        0.59
+      ]
+    },
+    {
+      "op": "join",
+      "objects": [
+        "LEG_0",
+        "LEG_1",
+        "LEG_2",
+        "LEG_3"
+      ],
+      "name": "SM_Legs"
+    },
+    {
+      "op": "modifier",
+      "object": "SM_Legs",
+      "kind": "bevel",
+      "params": {
+        "width": 0.005,
+        "segments": 2
+      }
+    },
+    {
+      "op": "apply_modifier",
+      "object": "SM_Legs",
+      "kind": "bevel"
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "SIGHT_0",
+      "size": 1.0,
+      "location": [
+        -0.64,
+        -0.685,
+        0.818
+      ],
+      "scale": [
+        0.016,
+        0.016,
+        0.004
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "SIGHT_1",
+      "size": 1.0,
+      "location": [
+        -0.64,
+        0.685,
+        0.818
+      ],
+      "scale": [
+        0.016,
+        0.016,
+        0.004
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "SIGHT_2",
+      "size": 1.0,
+      "location": [
+        -0.32,
+        -0.685,
+        0.818
+      ],
+      "scale": [
+        0.016,
+        0.016,
+        0.004
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "SIGHT_3",
+      "size": 1.0,
+      "location": [
+        -0.32,
+        0.685,
+        0.818
+      ],
+      "scale": [
+        0.016,
+        0.016,
+        0.004
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "SIGHT_4",
+      "size": 1.0,
+      "location": [
+        0.32,
+        -0.685,
+        0.818
+      ],
+      "scale": [
+        0.016,
+        0.016,
+        0.004
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "SIGHT_5",
+      "size": 1.0,
+      "location": [
+        0.32,
+        0.685,
+        0.818
+      ],
+      "scale": [
+        0.016,
+        0.016,
+        0.004
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "SIGHT_6",
+      "size": 1.0,
+      "location": [
+        0.64,
+        -0.685,
+        0.818
+      ],
+      "scale": [
+        0.016,
+        0.016,
+        0.004
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "SIGHT_7",
+      "size": 1.0,
+      "location": [
+        0.64,
+        0.685,
+        0.818
+      ],
+      "scale": [
+        0.016,
+        0.016,
+        0.004
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "SIGHT_8",
+      "size": 1.0,
+      "location": [
+        -1.32,
+        -0.28,
+        0.818
+      ],
+      "scale": [
+        0.016,
+        0.016,
+        0.004
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "SIGHT_9",
+      "size": 1.0,
+      "location": [
+        1.32,
+        -0.28,
+        0.818
+      ],
+      "scale": [
+        0.016,
+        0.016,
+        0.004
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "SIGHT_10",
+      "size": 1.0,
+      "location": [
+        -1.32,
+        0.28,
+        0.818
+      ],
+      "scale": [
+        0.016,
+        0.016,
+        0.004
+      ]
+    },
+    {
+      "op": "primitive",
+      "kind": "cube",
+      "name": "SIGHT_11",
+      "size": 1.0,
+      "location": [
+        1.32,
+        0.28,
+        0.818
+      ],
+      "scale": [
+        0.016,
+        0.016,
+        0.004
+      ]
+    },
+    {
+      "op": "join",
+      "objects": [
+        "SIGHT_0",
+        "SIGHT_1",
+        "SIGHT_2",
+        "SIGHT_3",
+        "SIGHT_4",
+        "SIGHT_5",
+        "SIGHT_6",
+        "SIGHT_7",
+        "SIGHT_8",
+        "SIGHT_9",
+        "SIGHT_10",
+        "SIGHT_11"
+      ],
+      "name": "SM_Sights"
+    },
+    {
+      "op": "material",
+      "object": "SM_Cloth",
+      "name": "MAT_Cloth",
+      "color": [
+        0.015,
+        0.2,
+        0.09,
+        1.0
+      ],
+      "roughness": 0.93
+    },
+    {
+      "op": "material",
+      "object": "SM_Rails",
+      "name": "MAT_Wood",
+      "color": [
+        0.16,
+        0.055,
+        0.022,
+        1.0
+      ],
+      "roughness": 0.34
+    },
+    {
+      "op": "material",
+      "object": "SM_Apron",
+      "name": "MAT_Wood",
+      "color": [
+        0.16,
+        0.055,
+        0.022,
+        1.0
+      ],
+      "roughness": 0.34
+    },
+    {
+      "op": "material",
+      "object": "SM_Legs",
+      "name": "MAT_Wood",
+      "color": [
+        0.16,
+        0.055,
+        0.022,
+        1.0
+      ],
+      "roughness": 0.34
+    },
+    {
+      "op": "material",
+      "object": "SM_Cushions",
+      "name": "MAT_Cushion",
+      "color": [
+        0.008,
+        0.105,
+        0.048,
+        1.0
+      ],
+      "roughness": 0.86
+    },
+    {
+      "op": "material",
+      "object": "SM_PocketWells",
+      "name": "MAT_Pocket",
+      "color": [
+        0.012,
+        0.01,
+        0.008,
+        1.0
+      ],
+      "roughness": 0.95
+    },
+    {
+      "op": "material",
+      "object": "SM_PocketNets",
+      "name": "MAT_Net",
+      "color": [
+        0.82,
+        0.82,
+        0.78,
+        1.0
+      ],
+      "roughness": 0.9
+    },
+    {
+      "op": "material",
+      "object": "SM_PocketRims",
+      "name": "MAT_Rim",
+      "color": [
+        0.34,
+        0.25,
+        0.12,
+        1.0
+      ],
+      "metallic": 0.85,
+      "roughness": 0.28
+    },
+    {
+      "op": "material",
+      "object": "SM_Sights",
+      "name": "MAT_Sight",
+      "color": [
+        0.88,
+        0.84,
+        0.68,
+        1.0
+      ],
+      "roughness": 0.4
+    },
+    {
+      "op": "camera",
+      "name": "CAM-main",
+      "location": [
+        3.2,
+        -3.5,
+        2.6
+      ],
+      "look_at": [
+        0,
+        0,
+        0.62
+      ],
+      "lens": 50
+    },
+    {
+      "op": "camera",
+      "name": "CAM-top",
+      "location": [
+        0.0,
+        -0.01,
+        4.6
+      ],
+      "look_at": [
+        0,
+        0,
+        0.6
+      ],
+      "lens": 55
+    },
+    {
+      "op": "light",
+      "kind": "sun",
+      "name": "LGT-key",
+      "location": [
+        2.5,
+        -2.5,
+        6.0
+      ],
+      "energy": 4.0
+    },
+    {
+      "op": "light",
+      "kind": "area",
+      "name": "LGT-fill",
+      "location": [
+        -2.5,
+        2.0,
+        3.0
+      ],
+      "energy": 300.0
+    },
+    {
+      "op": "render",
+      "path": "renders/preview.png",
+      "resolution_x": 1000,
+      "resolution_y": 800,
+      "engine": "eevee",
+      "samples": 48,
+      "camera": "CAM-main"
+    },
+    {
+      "op": "render",
+      "path": "renders/preview_top.png",
+      "resolution_x": 900,
+      "resolution_y": 900,
+      "engine": "eevee",
+      "samples": 48,
+      "camera": "CAM-top"
+    },
+    {
+      "op": "export",
+      "path": "artifacts/table.glb",
+      "format": "glb"
+    },
+    {
+      "op": "save",
+      "path": "output.blend"
+    }
   ]
 }

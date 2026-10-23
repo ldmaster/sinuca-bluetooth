@@ -13,9 +13,9 @@ class MultiplayerFlowTest {
         val host = GameWorld()
         val client = GameWorld()
 
-        val shot = Wire.parse(Wire.shot(0.42, 0.7)) as NetMessage.Shot
-        host.shoot(shot.angle, shot.power)
-        client.shoot(shot.angle, shot.power)
+        val shot = Wire.parse(Wire.shot(0.42, 0.7, 0.3, -0.2)) as NetMessage.Shot
+        host.shoot(shot.angle, shot.power, shot.strikeX, shot.strikeY)
+        client.shoot(shot.angle, shot.power, shot.strikeX, shot.strikeY)
 
         repeat(180) {
             host.step(1.0 / 120.0)

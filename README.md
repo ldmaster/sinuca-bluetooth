@@ -4,32 +4,42 @@
 
 Jogo de sinuca 8-ball **nativo para Android**, para exatamente **dois aparelhos**
 conectados por **Bluetooth clássico (RFCOMM)**. A mesa e o taco são modelos 3D
-gerados no **Blender** com o harness `blender-forge`; o jogo é
+gerados no **Blender** com o harness `blender-forge`; as bolas usam esferas de
+alta tesselação com texturas procedurais de número e listra. O jogo é
 Kotlin + OpenGL ES 3.0, sem engine externa.
 
 ![Mesa e HUD](docs/screenshot.png)
 
+Vistas extras: [de cima, com as redes](docs/screenshot-top.png) ·
+[trajetória prevista](docs/screenshot-trajectory.png).
+
 ## O que está implementado
 
-- Mesa 3D com seis caçapas, bola branca, 15 coloridas e taco animado.
-- Física própria de sinuca: atrito de rolamento, colisões elásticas entre bolas,
-  quiques nas tabelas e captura nas caçapas, com passo fixo e sub-passos.
-- Rolamento visual das bolas (rotação proporcional à velocidade) e queda
-  gradual dentro da caçapa antes de sair da mesa.
-- Regras de 8-ball simplificadas: grupos fixos (1–7 x 9–15), continuidade de vez
-  ao encaçapar a própria bola, falta da branca, vitória/derrota pela 8.
-- Bolas encaçapadas de cada jogador aparecem no topo da tela.
-- Controle de mira por arrasto relativo: arraste em qualquer ponto da mesa e a
-  direção gira suavemente, sem saltar para o dedo.
-- Força em barra vertical no lado direito, com arrasto para cima/baixo.
-- Três perspectivas de câmera (3/4, alta e baixa) no botão **VISÃO**.
+- Mesa de alta definição com caçapas reais: furos na mesa e no apron, poços
+  cilíndricos, redes no fundo, aros metálicos, almofadas e trilhos com chanfro.
+- Bolas de 48×32 segmentos com textura de número/listra: cores definidas, bolas
+  lisas e listradas, 8 e branca.
+- Física própria: atrito, colisões, quiques, queda gradual na caçapa e
+  **quinas de caçapa**: bola muito rápida e descentralizada pode quicar na boca
+  em vez de cair.
+- **Efeito (english)**: selecione o ponto de acerto na bola branca. Parte baixa
+  faz a branca voltar (draw), parte alta segue em frente (follow), laterais
+  curvam a trajetória e alteram o quique nas tabelas.
+- **Trajetória completa** opcional: simula a tacada com a força, ângulo e efeito
+  atuais e desenha o caminho da branca e da primeira bola atingida.
+- Indicador em tempo real da bola na mira: anel fantasma no ponto de contato,
+  destaque na bola-alvo e seta com a direção que ela vai tomar.
+- Mira por arrasto relativo, sem salto para onde o dedo tocou.
+- Barra de força vertical discreta, botão de tacada pequeno e HUD sem painéis:
+  bolas encaçapadas, vez, ícones de câmera/trajetória/sair e efeito ficam nos
+  cantos.
+- Três perspectivas de câmera (3/4, alta e baixa).
+- Rolamento visual das bolas proporcional à velocidade.
 - Multiplayer host-autoritativo: o host simula e envia snapshots (~16 Hz); o
   cliente prevê localmente e recebe correções. Apenas uma conexão é aceita.
 - Fluxo Bluetooth: criar partida (visível por 5 min) ou entrar em partida
   (aparelhos pareados + descoberta).
-- Modo **Treino local** para jogar sozinho e testar a física sem Bluetooth.
-- HUD com placar, bolas encaçapadas, indicador de vez, mira por toque, barra de
-  força vertical e botão ATIRAR.
+- Modo **Treino local** para jogar sozinho e testar tudo sem Bluetooth.
 
 ## Requisitos
 
@@ -54,14 +64,19 @@ APK: `app/build/outputs/apk/debug/app-debug.apk` (pacote `com.ldmaster.sinuca`).
 3. **Visitante:** toque em *Entrar em partida* e selecione o outro aparelho.
 4. Quando a mesa aparecer, o jogador 1 dá a primeira tacada.
 
-Controles (paisagem):
+Controles (paisagem, tudo nos cantos):
 
-- **Mira:** arraste o dedo sobre a mesa. O movimento é relativo: continue
-  arrastando em qualquer lugar para girar mais, sem saltos.
-- **Força:** arraste a barra vertical à direita (para cima aumenta).
-- **Tacada:** toque em **ATIRAR**.
-- **Perspectiva:** **VISÃO** alterna entre 3/4, visão alta e visão baixa.
-- **Sair:** botão **SAIR** no topo.
+- **Mira:** arraste sobre a mesa. O movimento é relativo: continue arrastando em
+  qualquer lugar para girar mais.
+- **Força:** arraste a barra vertical fina na borda direita (para cima aumenta).
+- **Efeito:** toque na bolinha **EFEITO** no canto inferior esquerdo; o ponto
+  vermelho indica onde a tacada acerta a branca.
+- **Tacada:** toque no círculo **ATIRAR** no canto inferior direito.
+- **Trajetória:** ícone de curva no canto superior direito (liga/desliga).
+- **Câmera:** ícone de câmera no canto superior direito alterna as 3 vistas.
+- **Sair:** **X** no canto superior direito.
+- **Bolas encaçapadas:** fileiras discretas **V** (você) e **A** (adversário)
+  no canto superior esquerdo.
 
 ## Regras adotadas
 
@@ -69,8 +84,8 @@ Controles (paisagem):
 - Encaçapar uma bola do próprio grupo mantém a vez; não encaçapar nada passa a vez.
 - Branca na caçapa: falta, a vez passa e a branca volta ao ponto inicial.
 - A 8 antes de limpar o grupo elimina o jogador; após limpar o grupo, vence.
-- Sem efeito (english), sem bola na mão livre e sem regra de tacada de saída
-  completa — é um protótipo jogável, não uma simulação oficial.
+- O efeito é uma aproximação jogável (não é um modelo físico completo de tacada);
+  não há bola na mão livre nem regra completa de tacada de saída.
 
 ## Arquitetura
 
@@ -80,38 +95,42 @@ app/src/main/java/com/ldmaster/sinuca/
 ├── GameActivity.kt          ciclo do jogo, sincronização e entrada
 ├── game/
 │   ├── Table.kt             dimensões, caçapas e pontos fixos (metros)
-│   ├── Ball.kt
-│   └── GameWorld.kt         física, regras, snapshots
+│   ├── Ball.kt              estado, efeito e matriz visual de rolamento
+│   └── GameWorld.kt         física, regras, previsão e snapshots
 ├── net/
 │   ├── BluetoothGame.kt     RFCOMM: accept, connect, leitura/escrita
 │   ├── Wire.kt              protocolo JSON por linha
 │   └── Session.kt
 ├── render/
-│   ├── GlbLoader.kt         parser GLB (glTF 2.0) → VBO com cores
-│   └── GameRenderer.kt      OpenGL ES 3.0: mesa, bolas, taco e mira
-└── ui/HudView.kt            HUD e controles por toque
+│   ├── GlbLoader.kt         parser GLB (glTF 2.0) → VBO com cores/UVs
+│   └── GameRenderer.kt      GLES 3.0: mesa, bolas texturizadas, mira,
+│                            indicador de direção e trajetória prevista
+└── ui/HudView.kt            HUD compacto, força, efeito e botões
 ```
 
 O protocolo usa uma linha JSON por mensagem (`hello`, `start`, `state`, `shot`,
 `rematch`, `bye`) sobre um socket RFCOMM com o UUID
 `8f3e1c2a-5b7d-4e9f-9a10-3c2b1d4e5f60`. O host é a autoridade: o cliente envia
-`shot` e recebe `state`.
+`shot` (ângulo, força e ponto de efeito) e recebe `state`.
 
 ## Assets 3D (Blender via forge)
 
 Os planos ficam em `assets-plans/table.json` e `assets-plans/cue.json` e usam apenas
-operações tipadas do harness (sem scripts `bpy`). Para regerar:
+operações tipadas do harness (sem scripts `bpy`). A mesa é construída com
+booleanos (furos da mesa e do apron), poços, redes, aros toroidais, almofadas e
+bevel. Para regerar:
 
 ```bash
-forge apply assets-plans/table.json --profile prop --brief "low-poly billiards table"
+forge apply assets-plans/table.json --profile prop --brief "high detail billiards table with real pockets and nets"
 forge apply assets-plans/cue.json   --profile prop --brief "low-poly pool cue"
 cp var/runs/<run>/blender/artifacts/table.glb app/src/main/assets/models/table.glb
 cp var/runs/<run>/blender/artifacts/cue.glb   app/src/main/assets/models/cue.glb
 ```
 
-Cada execução grava `.blend`, preview PNG e GLB em `var/runs/<id>/blender/`.
+Cada execução grava `.blend`, previews PNG e GLB em `var/runs/<id>/blender/`.
 O `GlbLoader` aplica as transformações de nó e as cores dos materiais (PBR base
-color), sem depender de Filament/Sceneform.
+color). As texturas das bolas são geradas no aparelho com Canvas e enviadas como
+texturas OpenGL, sem depender de Filament/Sceneform.
 
 ## Testes
 
@@ -119,9 +138,9 @@ color), sem depender de Filament/Sceneform.
 ./gradlew :app:testDebugUnitTest
 ```
 
-Cobrem colisão frontal, quique na tabela, queda em caçapa (incluindo a animação
-de queda), atrito, regras de vez, 8-ball, sincronização host/cliente e ida/volta
-do protocolo.
+Cobrem colisão frontal, quique na tabela, queda em caçapa (incluindo a animação),
+quinas de caçapa, draw/follow/english, atrito, regras de vez, 8-ball,
+sincronização host/cliente e ida/volta do protocolo (26 testes).
 
 ## Limitações conhecidas
 
@@ -130,4 +149,5 @@ do protocolo.
 - Sem áudio, sem revanche automática e sem seleção de grupos na primeira bola.
 - O cliente prevê a física localmente e é corrigido pelo host; em Bluetooth muito
   instável pode haver pequenos saltos.
-- Os modelos são low-poly e sem texturas, adequados a um protótipo.
+- O efeito e as quinas de caçapa são modelos simplificados, calibrados para a
+  jogabilidade.

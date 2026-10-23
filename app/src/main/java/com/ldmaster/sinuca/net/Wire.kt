@@ -10,7 +10,12 @@ sealed class NetMessage {
     data class Hello(val name: String) : NetMessage()
     data class Start(val youAre: Int) : NetMessage()
     data class State(val snapshot: WorldSnapshot) : NetMessage()
-    data class Shot(val angle: Double, val power: Double) : NetMessage()
+    data class Shot(
+        val angle: Double,
+        val power: Double,
+        val strikeX: Double = 0.0,
+        val strikeY: Double = 0.0
+    ) : NetMessage()
     data object Rematch : NetMessage()
     data object Bye : NetMessage()
 }
@@ -23,8 +28,14 @@ object Wire {
     fun start(youAre: Int): String =
         JSONObject().put("t", "start").put("you", youAre).toString()
 
-    fun shot(angle: Double, power: Double): String =
-        JSONObject().put("t", "shot").put("a", round4(angle)).put("p", round4(power)).toString()
+    fun shot(angle: Double, power: Double, strikeX: Double, strikeY: Double): String =
+        JSONObject()
+            .put("t", "shot")
+            .put("a", round4(angle))
+            .put("p", round4(power))
+            .put("sx", round4(strikeX))
+            .put("sy", round4(strikeY))
+            .toString()
 
     fun rematch(): String = JSONObject().put("t", "rematch").toString()
 
@@ -61,7 +72,12 @@ object Wire {
             "hello" -> NetMessage.Hello(json.optString("n"))
             "start" -> NetMessage.Start(json.optInt("you", 1))
             "state" -> NetMessage.State(decodeState(json))
-            "shot" -> NetMessage.Shot(json.optDouble("a", 0.0), json.optDouble("p", 0.0))
+            "shot" -> NetMessage.Shot(
+                angle = json.optDouble("a", 0.0),
+                power = json.optDouble("p", 0.0),
+                strikeX = json.optDouble("sx", 0.0),
+                strikeY = json.optDouble("sy", 0.0)
+            )
             "rematch" -> NetMessage.Rematch
             "bye" -> NetMessage.Bye
             else -> null

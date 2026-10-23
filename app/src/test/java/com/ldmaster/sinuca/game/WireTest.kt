@@ -30,11 +30,13 @@ class WireTest {
 
     @Test
     fun `shot round trips`() {
-        val message = Wire.parse(Wire.shot(-1.23456, 0.73))
+        val message = Wire.parse(Wire.shot(-1.23456, 0.73, 0.4, -0.2))
         assertTrue(message is NetMessage.Shot)
         val shot = message as NetMessage.Shot
         assertEquals(-1.2346, shot.angle, 1e-4)
         assertEquals(0.73, shot.power, 1e-4)
+        assertEquals(0.4, shot.strikeX, 1e-4)
+        assertEquals(-0.2, shot.strikeY, 1e-4)
     }
 
     @Test

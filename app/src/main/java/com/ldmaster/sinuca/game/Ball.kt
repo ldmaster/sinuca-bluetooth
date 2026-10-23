@@ -14,6 +14,10 @@ class Ball(
     var fall: Float = 0f
     var dropX: Double = 0.0
     var dropZ: Double = 0.0
+    var spinForward: Double = 0.0
+    var spinSide: Double = 0.0
+    var shotDirX: Double = 0.0
+    var shotDirZ: Double = 0.0
 
     val visualRotation: FloatArray = floatArrayOf(
         1f, 0f, 0f, 0f,

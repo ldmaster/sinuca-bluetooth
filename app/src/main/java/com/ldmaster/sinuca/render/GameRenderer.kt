@@ -1,10 +1,17 @@
 package com.ldmaster.sinuca.render
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Typeface
 import android.opengl.GLES30
 import android.opengl.GLSurfaceView
+import android.opengl.GLUtils
 import android.opengl.Matrix
 import android.util.Log
+import com.ldmaster.sinuca.game.Ball
 import com.ldmaster.sinuca.game.GameWorld
 import com.ldmaster.sinuca.game.Table
 import java.nio.ByteBuffer
@@ -30,6 +37,18 @@ class GameRenderer(
     var cameraMode: Int = 0
         private set
 
+    @Volatile
+    var showTrajectory: Boolean = false
+
+    @Volatile
+    private var shotPower: Float = 0.55f
+
+    @Volatile
+    private var strikeX: Float = 0f
+
+    @Volatile
+    private var strikeY: Float = 0f
+
     private var width = 1
     private var height = 1
     private val viewProjection = FloatArray(16)
@@ -37,6 +56,10 @@ class GameRenderer(
     private val view = FloatArray(16)
     private val eye = FloatArray(3)
     private val translation = FloatArray(16)
+    private val ballTextures = IntArray(16)
+    private var cuePath = FloatArray(0)
+    private var targetPath = FloatArray(0)
+    private var lastPredictionKey = Long.MIN_VALUE
 
     private var program = 0
     private var lineProgram = 0
@@ -54,6 +77,8 @@ class GameRenderer(
     private var uStripe = 0
     private var uUseColor = 0
     private var uEye = 0
+    private var uUseTexture = 0
+    private var uTexture = 0
     private var uLineMvp = 0
     private var uLineColor = 0
 
@@ -70,6 +95,8 @@ class GameRenderer(
         uStripe = GLES30.glGetUniformLocation(program, "uStripe")
         uUseColor = GLES30.glGetUniformLocation(program, "uUseColor")
         uEye = GLES30.glGetUniformLocation(program, "uEye")
+        uUseTexture = GLES30.glGetUniformLocation(program, "uUseTexture")
+        uTexture = GLES30.glGetUniformLocation(program, "uTexture")
 
         lineProgram = linkProgram(LINE_VERTEX_SHADER, LINE_FRAGMENT_SHADER)
         uLineMvp = GLES30.glGetUniformLocation(lineProgram, "uMVP")
@@ -89,8 +116,9 @@ class GameRenderer(
             Log.e(TAG, "failed to load models", error)
         }
 
-        sphereMesh = GpuMesh(sphere(Table.BALL_RADIUS.toFloat()))
+        sphereMesh = GpuMesh(sphere(Table.BALL_RADIUS.toFloat(), segments = 48, rings = 32))
         floorMesh = GpuMesh(floor())
+        for (number in 0..15) ballTextures[number] = createBallTexture(number)
 
         val ids = IntArray(1)
         GLES30.glGenBuffers(1, ids, 0)
@@ -175,7 +203,7 @@ class GameRenderer(
                     (ball.vz / speed).toFloat(), 0f, (-ball.vx / speed).toFloat()
                 )
             }
-            val drop = if (ball.falling) 0.24f * ball.fall * ball.fall else 0f
+            val drop = if (ball.falling) 0.18f * ball.fall * ball.fall else 0f
             Matrix.setIdentityM(translation, 0)
             Matrix.translateM(
                 translation, 0,
@@ -189,8 +217,10 @@ class GameRenderer(
             drawMesh(
                 sphereMesh, mvp, model,
                 useVertexColor = true,
-                stripe = ball.number in 9..15,
-                color = color
+                stripe = false,
+                color = color,
+                textureId = ballTextures[ball.number],
+                useTexture = true
             )
         }
 
@@ -199,45 +229,209 @@ class GameRenderer(
         val cue = world.cueBall()
         val showAim = cue.active && !world.moving && world.winner < 0 && world.canShoot(localPlayer)
         if (showAim) {
-            GLES30.glUseProgram(lineProgram)
-            GLES30.glUniformMatrix4fv(uLineMvp, 1, false, viewProjection, 0)
-            GLES30.glUniform4f(uLineColor, 1f, 0.93f, 0.62f, 0.42f)
             val directionX = cos(world.aimAngle).toFloat()
             val directionZ = sin(world.aimAngle).toFloat()
-            val startDistance = Table.BALL_RADIUS.toFloat() + 0.012f
-            val endDistance = startDistance + 0.55f
-            val points = ArrayList<Float>(32)
-            var distance = startDistance
-            while (distance < endDistance) {
-                val dashEnd = (distance + 0.032f).coerceAtMost(endDistance)
-                points.add(cue.x.toFloat() + directionX * distance)
-                points.add(Table.BALL_Y.toFloat())
-                points.add(cue.z.toFloat() + directionZ * distance)
-                points.add(cue.x.toFloat() + directionX * dashEnd)
-                points.add(Table.BALL_Y.toFloat())
-                points.add(cue.z.toFloat() + directionZ * dashEnd)
-                distance = dashEnd + 0.022f
+            drawAimDashes(cue, directionX, directionZ)
+            val target = firstBallInSight(cue, directionX, directionZ)
+            if (target != null) {
+                drawSightIndicator(cue, target)
+                if (showTrajectory) drawPrediction(target)
+            } else if (showTrajectory) {
+                drawPrediction(null)
             }
-            val vertexData = points.toFloatArray()
-            val buffer = ByteBuffer.allocateDirect(vertexData.size * 4)
-                .order(ByteOrder.nativeOrder())
-                .asFloatBuffer()
-            buffer.put(vertexData).position(0)
-            GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, lineBuffer)
-            GLES30.glBufferData(
-                GLES30.GL_ARRAY_BUFFER,
-                vertexData.size * 4,
-                buffer,
-                GLES30.GL_DYNAMIC_DRAW
-            )
-            GLES30.glEnableVertexAttribArray(0)
-            GLES30.glVertexAttribPointer(0, 3, GLES30.GL_FLOAT, false, 0, 0)
-            GLES30.glLineWidth(2f)
-            GLES30.glDrawArrays(GLES30.GL_LINES, 0, vertexData.size / 3)
-            GLES30.glDisableVertexAttribArray(0)
-            GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, 0)
         }
         GLES30.glUseProgram(0)
+    }
+
+    private fun drawAimDashes(cue: Ball, directionX: Float, directionZ: Float) {
+        val startDistance = Table.BALL_RADIUS.toFloat() + 0.012f
+        val endDistance = startDistance + 0.55f
+        val points = ArrayList<Float>(32)
+        var distance = startDistance
+        while (distance < endDistance) {
+            val dashEnd = (distance + 0.032f).coerceAtMost(endDistance)
+            points.add(cue.x.toFloat() + directionX * distance)
+            points.add(Table.BALL_Y.toFloat())
+            points.add(cue.z.toFloat() + directionZ * distance)
+            points.add(cue.x.toFloat() + directionX * dashEnd)
+            points.add(Table.BALL_Y.toFloat())
+            points.add(cue.z.toFloat() + directionZ * dashEnd)
+            distance = dashEnd + 0.022f
+        }
+        drawLineVertices(points.toFloatArray(), 1f, 0.93f, 0.62f, 0.42f, 2f, GLES30.GL_LINES)
+    }
+
+    private fun firstBallInSight(cue: Ball, directionX: Float, directionZ: Float): Ball? {
+        var best: Ball? = null
+        var bestDistance = Double.MAX_VALUE
+        val diameter = Table.BALL_RADIUS * 2.0
+        val direction = doubleArrayOf(directionX.toDouble(), directionZ.toDouble())
+        for (ball in world.balls) {
+            if (ball.number == 0 || !ball.active || ball.falling) continue
+            val tx = ball.x - cue.x
+            val tz = ball.z - cue.z
+            val along = tx * direction[0] + tz * direction[1]
+            if (along <= 0.0) continue
+            val cross = tx * direction[1] - tz * direction[0]
+            if (kotlin.math.abs(cross) >= diameter) continue
+            val hit = along - kotlin.math.sqrt(diameter * diameter - cross * cross)
+            if (hit >= 0.0 && hit < bestDistance) {
+                bestDistance = hit
+                best = ball
+            }
+        }
+        return best
+    }
+
+    private fun drawSightIndicator(cue: Ball, target: Ball) {
+        val dx = target.x - cue.x
+        val dz = target.z - cue.z
+        val distance = kotlin.math.hypot(dx, dz)
+        if (distance < 1e-9) return
+        val normalX = dx / distance
+        val normalZ = dz / distance
+        val ghostX = target.x - normalX * Table.BALL_RADIUS * 2.0
+        val ghostZ = target.z - normalZ * Table.BALL_RADIUS * 2.0
+
+        val points = ArrayList<Float>(160)
+        addCircle(points, ghostX, ghostZ, Table.BALL_RADIUS)
+        addCircle(points, target.x, target.z, Table.BALL_RADIUS * 1.12)
+        val startX = target.x + normalX * (Table.BALL_RADIUS + 0.008)
+        val startZ = target.z + normalZ * (Table.BALL_RADIUS + 0.008)
+        val endX = target.x + normalX * (Table.BALL_RADIUS + 0.30)
+        val endZ = target.z + normalZ * (Table.BALL_RADIUS + 0.30)
+        points.add(startX.toFloat())
+        points.add(Table.BALL_Y.toFloat())
+        points.add(startZ.toFloat())
+        points.add(endX.toFloat())
+        points.add(Table.BALL_Y.toFloat())
+        points.add(endZ.toFloat())
+
+        drawLineVertices(
+            points.toFloatArray(),
+            0.55f, 0.95f, 0.85f, 0.60f,
+            2.5f,
+            GLES30.GL_LINES
+        )
+    }
+
+    private fun addCircle(points: ArrayList<Float>, centerX: Double, centerZ: Double, radius: Double) {
+        val segments = 28
+        for (index in 0 until segments) {
+            val first = Math.PI * 2.0 * index / segments
+            val second = Math.PI * 2.0 * (index + 1) / segments
+            points.add((centerX + cos(first) * radius).toFloat())
+            points.add(Table.BALL_Y.toFloat())
+            points.add((centerZ + sin(first) * radius).toFloat())
+            points.add((centerX + cos(second) * radius).toFloat())
+            points.add(Table.BALL_Y.toFloat())
+            points.add((centerZ + sin(second) * radius).toFloat())
+        }
+    }
+
+    private fun drawPrediction(target: Ball?) {
+        val key = predictionKey()
+        if (key != lastPredictionKey) {
+            lastPredictionKey = key
+            simulatePrediction(target)
+        }
+        if (cuePath.isNotEmpty()) {
+            drawLineVertices(cuePath, 1f, 1f, 1f, 0.28f, 2f, GLES30.GL_LINE_STRIP)
+        }
+        if (targetPath.isNotEmpty()) {
+            drawLineVertices(targetPath, 0.45f, 0.95f, 0.85f, 0.55f, 2.5f, GLES30.GL_LINE_STRIP)
+        }
+    }
+
+    private fun predictionKey(): Long {
+        var key = 17L
+        key = key * 31 + world.aimAngle.toBits()
+        key = key * 31 + shotPower.toBits()
+        key = key * 31 + strikeX.toBits()
+        key = key * 31 + strikeY.toBits()
+        for (ball in world.balls) {
+            key = key * 31 + (ball.x * 10000.0).toLong()
+            key = key * 31 + (ball.z * 10000.0).toLong()
+            key = key * 31 + (if (ball.active) 1 else 0)
+        }
+        return key
+    }
+
+    private fun simulatePrediction(target: Ball?) {
+        val snapshot = synchronized(world) { world.snapshot() }
+        val simulation = GameWorld()
+        simulation.applySnapshot(snapshot)
+        val targetNumber = target?.number
+        val started = simulation.shoot(
+            world.aimAngle,
+            shotPower.toDouble(),
+            strikeX.toDouble(),
+            strikeY.toDouble()
+        )
+        if (!started) {
+            cuePath = FloatArray(0)
+            targetPath = FloatArray(0)
+            return
+        }
+        val cue = simulation.balls[0]
+        val targetBall = targetNumber?.let { simulation.balls[it] }
+        val cuePoints = ArrayList<Float>(160)
+        val targetPoints = ArrayList<Float>(160)
+        addPathPoint(cuePoints, cue)
+        if (targetBall != null && (targetBall.active || targetBall.falling)) {
+            addPathPoint(targetPoints, targetBall)
+        }
+        var steps = 0
+        while (simulation.moving && steps < 300) {
+            simulation.step(1.0 / 60.0)
+            if (steps % 2 == 0) {
+                if (cue.active || cue.falling) addPathPoint(cuePoints, cue)
+                if (targetBall != null && (targetBall.active || targetBall.falling)) {
+                    addPathPoint(targetPoints, targetBall)
+                }
+            }
+            steps++
+        }
+        cuePath = cuePoints.toFloatArray()
+        targetPath = targetPoints.toFloatArray()
+    }
+
+    private fun addPathPoint(points: ArrayList<Float>, ball: Ball) {
+        points.add(ball.x.toFloat())
+        points.add(Table.BALL_Y.toFloat())
+        points.add(ball.z.toFloat())
+    }
+
+    private fun drawLineVertices(
+        points: FloatArray,
+        red: Float,
+        green: Float,
+        blue: Float,
+        alpha: Float,
+        width: Float,
+        mode: Int
+    ) {
+        if (points.size < 6) return
+        GLES30.glUseProgram(lineProgram)
+        GLES30.glUniformMatrix4fv(uLineMvp, 1, false, viewProjection, 0)
+        GLES30.glUniform4f(uLineColor, red, green, blue, alpha)
+        val buffer = ByteBuffer.allocateDirect(points.size * 4)
+            .order(ByteOrder.nativeOrder())
+            .asFloatBuffer()
+        buffer.put(points).position(0)
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, lineBuffer)
+        GLES30.glBufferData(
+            GLES30.GL_ARRAY_BUFFER,
+            points.size * 4,
+            buffer,
+            GLES30.GL_DYNAMIC_DRAW
+        )
+        GLES30.glEnableVertexAttribArray(0)
+        GLES30.glVertexAttribPointer(0, 3, GLES30.GL_FLOAT, false, 0, 0)
+        GLES30.glLineWidth(width)
+        GLES30.glDrawArrays(mode, 0, points.size / 3)
+        GLES30.glDisableVertexAttribArray(0)
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, 0)
     }
 
     private fun drawCue(model: FloatArray) {
@@ -268,19 +462,35 @@ class GameRenderer(
         model: FloatArray,
         useVertexColor: Boolean,
         stripe: Boolean,
-        color: FloatArray
+        color: FloatArray,
+        textureId: Int = 0,
+        useTexture: Boolean = false
     ) {
         if (mesh == null) return
         GLES30.glUniformMatrix4fv(uMvp, 1, false, mvp, 0)
         GLES30.glUniformMatrix4fv(uModel, 1, false, model, 0)
         GLES30.glUniform1f(uUseColor, if (useVertexColor) 1f else 0f)
         GLES30.glUniform1f(uStripe, if (stripe) 1f else 0f)
+        GLES30.glUniform1f(uUseTexture, if (useTexture) 1f else 0f)
         GLES30.glUniform3f(uColor, color[0], color[1], color[2])
+        if (useTexture) {
+            GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, textureId)
+            GLES30.glUniform1i(uTexture, 0)
+        }
         mesh.draw()
+        if (useTexture) GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
     }
 
     fun rotateAim(deltaPixels: Float) {
         synchronized(world) { world.aimAngle += deltaPixels * AIM_SENSITIVITY }
+    }
+
+    fun setShotParams(power: Float, strikeX: Float, strikeY: Float) {
+        shotPower = power.coerceIn(0f, 1f)
+        this.strikeX = strikeX.coerceIn(-1f, 1f)
+        this.strikeY = strikeY.coerceIn(-1f, 1f)
+        lastPredictionKey = Long.MIN_VALUE
     }
 
     private fun ballColor(number: Int): FloatArray = when (number) {
@@ -298,10 +508,82 @@ class GameRenderer(
     private fun linear(r: Float, g: Float, b: Float): FloatArray =
         floatArrayOf(r.pow(2.2f), g.pow(2.2f), b.pow(2.2f))
 
-    private fun sphere(radius: Float, segments: Int = 30, rings: Int = 18): MeshData {
+    private fun ballPaintColor(number: Int): Int = when (number) {
+        0 -> Color.rgb(247, 247, 242)
+        1, 9 -> Color.rgb(232, 178, 26)
+        2, 10 -> Color.rgb(30, 79, 168)
+        3, 11 -> Color.rgb(192, 40, 30)
+        4, 12 -> Color.rgb(90, 42, 122)
+        5, 13 -> Color.rgb(224, 106, 18)
+        6, 14 -> Color.rgb(15, 107, 52)
+        7, 15 -> Color.rgb(122, 28, 28)
+        else -> Color.rgb(20, 20, 20)
+    }
+
+    private fun createBallTexture(number: Int): Int {
+        val width = 512
+        val height = 256
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        val base = ballPaintColor(number)
+
+        if (number == 0) {
+            canvas.drawColor(Color.WHITE)
+            paint.color = Color.rgb(214, 44, 44)
+            canvas.drawCircle(width * 0.5f, height * 0.5f, height * 0.03f, paint)
+        } else if (number in 9..15) {
+            canvas.drawColor(Color.WHITE)
+            paint.color = base
+            canvas.drawRect(0f, height * 0.26f, width.toFloat(), height * 0.74f, paint)
+        } else {
+            canvas.drawColor(base)
+        }
+
+        if (number != 0) {
+            val patchCenterY = height * 0.50f
+            val patchRadius = height * 0.095f
+            paint.color = Color.WHITE
+            paint.style = Paint.Style.FILL
+            for (centerX in floatArrayOf(width * 0.25f, width * 0.75f)) {
+                canvas.drawCircle(centerX, patchCenterY, patchRadius, paint)
+            }
+            paint.color = Color.BLACK
+            paint.textSize = height * 0.120f
+            paint.typeface = Typeface.DEFAULT_BOLD
+            paint.textAlign = Paint.Align.CENTER
+            for (centerX in floatArrayOf(width * 0.25f, width * 0.75f)) {
+                canvas.drawText(
+                    number.toString(),
+                    centerX,
+                    patchCenterY + height * 0.038f,
+                    paint
+                )
+            }
+        }
+
+        val ids = IntArray(1)
+        GLES30.glGenTextures(1, ids, 0)
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, ids[0])
+        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_LINEAR)
+        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR)
+        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_REPEAT)
+        GLES30.glTexParameteri(
+            GLES30.GL_TEXTURE_2D,
+            GLES30.GL_TEXTURE_WRAP_T,
+            GLES30.GL_CLAMP_TO_EDGE
+        )
+        GLUtils.texImage2D(GLES30.GL_TEXTURE_2D, 0, bitmap, 0)
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
+        bitmap.recycle()
+        return ids[0]
+    }
+
+    private fun sphere(radius: Float, segments: Int = 48, rings: Int = 32): MeshData {
         val positions = ArrayList<Float>()
         val normals = ArrayList<Float>()
         val colors = ArrayList<Float>()
+        val uvs = ArrayList<Float>()
         val indices = ArrayList<Int>()
         for (ring in 0..rings) {
             val theta = Math.PI * ring / rings
@@ -320,6 +602,8 @@ class GameRenderer(
                 colors.add(1f)
                 colors.add(1f)
                 colors.add(1f)
+                uvs.add(1f - segment.toFloat() / segments)
+                uvs.add(1f - ring.toFloat() / rings)
             }
         }
         for (ring in 0 until rings) {
@@ -338,7 +622,8 @@ class GameRenderer(
             positions.toFloatArray(),
             normals.toFloatArray(),
             colors.toFloatArray(),
-            ShortArray(indices.size) { indices[it].toShort() }
+            ShortArray(indices.size) { indices[it].toShort() },
+            uvs.toFloatArray()
         )
     }
 
@@ -405,7 +690,7 @@ class GameRenderer(
         private val count: Int
 
         init {
-            val stride = 9
+            val stride = 11
             val vertexData = FloatArray(mesh.vertexCount * stride)
             var at = 0
             for (i in 0 until mesh.vertexCount) {
@@ -418,6 +703,8 @@ class GameRenderer(
                 vertexData[at++] = mesh.colors[i * 3]
                 vertexData[at++] = mesh.colors[i * 3 + 1]
                 vertexData[at++] = mesh.colors[i * 3 + 2]
+                vertexData[at++] = mesh.uvs[i * 2]
+                vertexData[at++] = mesh.uvs[i * 2 + 1]
             }
             val vertices = ByteBuffer.allocateDirect(vertexData.size * 4)
                 .order(ByteOrder.nativeOrder())
@@ -452,17 +739,20 @@ class GameRenderer(
         fun draw() {
             GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, vertexBuffer[0])
             GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER, indexBuffer[0])
-            val stride = 9 * 4
+            val stride = 11 * 4
             GLES30.glEnableVertexAttribArray(0)
             GLES30.glVertexAttribPointer(0, 3, GLES30.GL_FLOAT, false, stride, 0)
             GLES30.glEnableVertexAttribArray(1)
             GLES30.glVertexAttribPointer(1, 3, GLES30.GL_FLOAT, false, stride, 3 * 4)
             GLES30.glEnableVertexAttribArray(2)
             GLES30.glVertexAttribPointer(2, 3, GLES30.GL_FLOAT, false, stride, 6 * 4)
+            GLES30.glEnableVertexAttribArray(3)
+            GLES30.glVertexAttribPointer(3, 2, GLES30.GL_FLOAT, false, stride, 9 * 4)
             GLES30.glDrawElements(GLES30.GL_TRIANGLES, count, GLES30.GL_UNSIGNED_SHORT, 0)
             GLES30.glDisableVertexAttribArray(0)
             GLES30.glDisableVertexAttribArray(1)
             GLES30.glDisableVertexAttribArray(2)
+            GLES30.glDisableVertexAttribArray(3)
             GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, 0)
             GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER, 0)
         }
@@ -484,18 +774,21 @@ class GameRenderer(
 layout(location = 0) in vec3 aPos;
 layout(location = 1) in vec3 aNormal;
 layout(location = 2) in vec3 aColor;
+layout(location = 3) in vec2 aUv;
 uniform mat4 uMVP;
 uniform mat4 uModel;
 out vec3 vNormal;
 out vec3 vColor;
 out vec3 vLocal;
 out vec3 vWorld;
+out vec2 vUv;
 void main() {
     vec4 world = uModel * vec4(aPos, 1.0);
     vWorld = world.xyz;
     vNormal = mat3(uModel) * aNormal;
     vColor = aColor;
     vLocal = aPos;
+    vUv = aUv;
     gl_Position = uMVP * vec4(aPos, 1.0);
 }
 """
@@ -506,24 +799,32 @@ in vec3 vNormal;
 in vec3 vColor;
 in vec3 vLocal;
 in vec3 vWorld;
+in vec2 vUv;
 uniform vec3 uColor;
 uniform float uStripe;
 uniform float uUseColor;
+uniform float uUseTexture;
+uniform sampler2D uTexture;
 uniform vec3 uEye;
 out vec4 fragColor;
 void main() {
-    vec3 base = mix(vColor, uColor, uUseColor);
-    if (uStripe > 0.5) {
-        float band = smoothstep(0.55, 0.40, abs(normalize(vLocal).y));
-        base = mix(vec3(0.93), base, band);
+    vec3 base;
+    if (uUseTexture > 0.5) {
+        base = pow(texture(uTexture, vUv).rgb, vec3(2.2));
+    } else {
+        base = mix(vColor, uColor, uUseColor);
+        if (uStripe > 0.5) {
+            float band = smoothstep(0.55, 0.40, abs(normalize(vLocal).y));
+            base = mix(vec3(0.93), base, band);
+        }
     }
     vec3 n = normalize(vNormal);
     vec3 l = normalize(vec3(0.35, 1.0, 0.25));
     vec3 v = normalize(uEye - vWorld);
     vec3 h = normalize(l + v);
     float diffuse = max(dot(n, l), 0.0);
-    float specular = pow(max(dot(n, h), 0.0), 48.0) * 0.30;
-    vec3 lit = base * (0.40 + 0.80 * diffuse) + vec3(specular);
+    float specular = pow(max(dot(n, h), 0.0), 56.0) * 0.35;
+    vec3 lit = base * (0.42 + 0.78 * diffuse) + vec3(specular);
     fragColor = vec4(pow(clamp(lit, 0.0, 1.0), vec3(1.0 / 2.2)), 1.0);
 }
 """

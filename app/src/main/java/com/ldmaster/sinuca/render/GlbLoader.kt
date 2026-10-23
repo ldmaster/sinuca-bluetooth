@@ -11,7 +11,8 @@ class MeshData(
     val positions: FloatArray,
     val normals: FloatArray,
     val colors: FloatArray,
-    val indices: ShortArray
+    val indices: ShortArray,
+    val uvs: FloatArray = FloatArray((positions.size / 3) * 2)
 ) {
     val vertexCount: Int get() = positions.size / 3
 }
@@ -74,6 +75,8 @@ object GlbLoader {
         }
         if (out.positions.isEmpty()) {
             out.addVertex(0f, 0f, 0f, 0f, 1f, 0f, 0.8f, 0.8f, 0.8f)
+            out.uvs.add(0f)
+            out.uvs.add(0f)
             out.indices.add(0)
         }
         val mesh = out.build()
@@ -127,6 +130,11 @@ object GlbLoader {
         } else {
             null
         }
+        val uvs = if (attributes.has("TEXCOORD_0")) {
+            reader.floats(attributes.getInt("TEXCOORD_0"))
+        } else {
+            null
+        }
         val color = materialColor(primitive, document)
         val normalMatrix = Mat4.normalMatrix(world)
         val base = out.positions.size / 3
@@ -167,6 +175,13 @@ object GlbLoader {
                 nz = 0f
             }
             out.addVertex(point[0], point[1], point[2], nx, ny, nz, color[0], color[1], color[2])
+            if (uvs != null) {
+                out.uvs.add(uvs[i * 2])
+                out.uvs.add(uvs[i * 2 + 1])
+            } else {
+                out.uvs.add(0f)
+                out.uvs.add(0f)
+            }
         }
 
         val indices = primitive.optInt("indices", -1)
@@ -222,13 +237,14 @@ object GlbLoader {
                 else -> mesh.positions[index] - cz
             }
         }
-        return MeshData(positions, mesh.normals, mesh.colors, mesh.indices)
+        return MeshData(positions, mesh.normals, mesh.colors, mesh.indices, mesh.uvs)
     }
 
     private class Builder {
         val positions = ArrayList<Float>()
         val normals = ArrayList<Float>()
         val colors = ArrayList<Float>()
+        val uvs = ArrayList<Float>()
         val indices = ArrayList<Int>()
 
         fun addVertex(
@@ -253,7 +269,8 @@ object GlbLoader {
                 positions.toFloatArray(),
                 normals.toFloatArray(),
                 colors.toFloatArray(),
-                indexArray
+                indexArray,
+                uvs.toFloatArray()
             )
         }
     }
