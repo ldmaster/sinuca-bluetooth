@@ -17,7 +17,14 @@ object Table {
     const val CORNER_HOLE_RADIUS = 0.068
     const val SIDE_HOLE_RADIUS = 0.070
     const val POCKET_SHELF = 0.025
-    const val CORNER_HOLE_OFFSET = (CORNER_HOLE_RADIUS + POCKET_SHELF) / 1.4142135623730951
+
+    /**
+     * The corner mouth line is [CORNER_MOUTH] / 2 inside the playing corner.
+     * Put the hole edge [POCKET_SHELF] behind that line, not behind the corner:
+     * the remaining distance is projected on both axes.
+     */
+    const val CORNER_HOLE_OFFSET =
+        ((CORNER_HOLE_RADIUS + POCKET_SHELF) - CORNER_MOUTH / 2.0) / 1.4142135623730951
     const val SIDE_HOLE_OFFSET = SIDE_HOLE_RADIUS + POCKET_SHELF
 
     data class Pocket(

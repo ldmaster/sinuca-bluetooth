@@ -10,9 +10,12 @@ Kotlin + OpenGL ES 3.0, sem engine externa.
 
 A mesa segue as medidas reais de uma mesa de torneio de 9 pés (área de jogo
 2,54 × 1,27 m, bolas de 57,15 mm, bocas de 116/127 mm). As caçapas são
-**círculos completos recuados 25 mm atrás da linha da boca**, com copo
-revestido e shelf; o pano termina na boca, o buraco fica inteiro no trilho e o
-verde não é invadido. As medidas, fontes e a correspondência com a física estão em
+**círculos completos recuados 25 mm atrás da linha da boca**, com copo fechado,
+liner escuro e aro metálico; o pano e o slate são recortados só nesses seis
+círculos e o shelf continua coberto de pano. O apron é uma **moldura fechada
+nos quatro lados**, com o topo 3 mm dentro do trilho e recortes apenas nas
+caçapas; os painéis curtos existem e os dentes de trilho ao lado de cada boca
+recebem jaw caps escuros. As medidas, fontes e a correspondência com a física estão em
 [`docs/table-spec.md`](docs/table-spec.md); o relatório do laboratório de física
 fica em [`docs/physics-report.md`](docs/physics-report.md).
 
@@ -26,10 +29,12 @@ Vistas extras: [100% de cima, com as caçapas](docs/screenshot-top.png) ·
 
 - Mesa de 9 pés modelada a partir de especificações WPA/BCA: área de jogo
   2,54 × 1,27 m, trilho de 195 mm, almofadas com nariz a 36 mm (63,5% da bola),
-  pano de 4 mm sobre slate escuro, copo revestido e facetas de borracha nas
+  pano de 4 mm sobre slate escuro, copo fechado e facetas de borracha nas
   pontas das almofadas. As caçapas são círculos completos recuados 25 mm atrás
-  da linha da boca, com shelf; o buraco fica inteiro dentro da madeira e o pano
-  chega até a boca. Nada ultrapassa a moldura.
+  da linha da boca, com shelf de pano; o copo se sobrepõe ao furo do trilho e
+  ao recorte do apron, então não há fresta nem estrutura visível por dentro.
+  O apron é uma moldura fechada nos quatro lados, com painéis curtos e jaw caps
+  nas bocas. Nada ultrapassa a moldura.
 - Bolas de 64×48 segmentos com textura 768×384 de número/listra, brilho
   especular e uma luz pontual sobre a mesa para dar volume às bolas de cor
   única.
@@ -166,12 +171,15 @@ O protocolo usa uma linha JSON por mensagem (`hello`, `start`, `state`, `shot`,
 
 ## Assets 3D (Blender via forge)
 
-A mesa é gerada deterministicamente por `assets-plans/generate_table.py`, que
-emite `assets-plans/table.json` (operações tipadas do harness, sem scripts
+A mesa base é gerada deterministicamente por `assets-plans/generate_table.py`,
+que emite `assets-plans/table.json` (operações tipadas do harness, sem scripts
 `bpy`). Nada é improvisado: as cotas vêm de `docs/table-spec.md`. O plano recua
-a caçapa 25 mm atrás da linha da boca (shelf), cunha o copo dentro do trilho, cobre
-as pontas das almofadas com facetas e mantém as superfícies sem sobreposição
-coplanar. Para regerar:
+a caçapa 25 mm atrás da linha da boca (shelf), recorta pano/slate só nos seis
+copos, cobre as pontas das almofadas com facetas e mantém as superfícies sem
+sobreposição coplanar. Os quatro temas são fechados por
+`assets-plans/sculpt_apron.py`, que reconstrói o apron como moldura nos quatro
+lados, os trilhos, os copos e os jaw caps e salva o `.blend` pronto para
+exportar. Para regerar a base:
 
 ```bash
 python3 assets-plans/generate_table.py
@@ -188,10 +196,23 @@ O script também pode ser validado sem abrir o Blender:
   "import json;from blender_forge.ops import parse_plan;parse_plan(json.load(open('assets-plans/table.json')))"
 ```
 
-Cada execução grava `.blend`, previews PNG e GLB em `var/runs/<id>/blender/`.
-O `GlbLoader` aplica as transformações de nó e as cores dos materiais (PBR base
-color). As texturas das bolas são geradas no aparelho com Canvas e enviadas como
-texturas OpenGL, sem depender de Filament/Sceneform.
+Os temas seguem o mesmo fluxo, com o script de reconstrução e os planos de
+exportação:
+
+```bash
+/Applications/Blender.app/Contents/MacOS/Blender -b var/runs/<run>/blender/theme_a.blend \
+  --python assets-plans/sculpt_apron.py -- var/rebuild/theme_a.blend
+/Users/lucasdavi/IA/blender-forge/.venv/bin/forge apply assets-plans/export_apron_a.json \
+  --source var/rebuild/theme_a.blend
+cp var/runs/<novo-run>/blender/artifacts/table_a.glb app/src/main/assets/models/
+```
+
+Repita para `_b`, `_c` e `_d`. Cada execução grava `.blend`, previews PNG e GLB em
+`var/runs/<id>/blender/`. O `GlbLoader` aplica as transformações de nó, as cores
+dos materiais (PBR base color) e usa índices de 32 bits, então o número de
+vértices não fica limitado a 65.535. As texturas das bolas são geradas no
+aparelho com Canvas e enviadas como texturas OpenGL, sem depender de
+Filament/Sceneform.
 
 ## Testes
 
@@ -202,7 +223,7 @@ texturas OpenGL, sem depender de Filament/Sceneform.
 Cobrem colisão frontal, quique na tabela, queda em caçapa (incluindo a animação),
 mandíbulas, geometria de mira (centro x quina), draw/follow/english, atrito,
 regras de vez, 8-ball, sincronização host/cliente e ida/volta do protocolo
-(34 testes).
+(37 testes).
 
 O `PhysicsLabTest` é o portão de física: mede o erro de direção contra a bola
 fantasma, a distância de rolagem por porcentagem de força, o ângulo de quique,

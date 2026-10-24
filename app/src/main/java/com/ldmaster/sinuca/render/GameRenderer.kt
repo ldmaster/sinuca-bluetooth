@@ -715,7 +715,7 @@ class GameRenderer(
             positions.toFloatArray(),
             normals.toFloatArray(),
             colors.toFloatArray(),
-            ShortArray(indices.size) { indices[it].toShort() },
+            indices.toIntArray(),
             uvs.toFloatArray()
         )
     }
@@ -745,7 +745,7 @@ class GameRenderer(
                 0.018f, 0.022f, 0.030f,
                 0.018f, 0.022f, 0.030f
             ),
-            shortArrayOf(0, 1, 2, 0, 2, 3),
+            intArrayOf(0, 1, 2, 0, 2, 3),
             floatArrayOf(0f, 0f, 1f, 0f, 1f, 1f, 0f, 1f)
         )
     }
@@ -772,7 +772,7 @@ class GameRenderer(
                 1f, 1f, 1f,
                 1f, 1f, 1f
             ),
-            shortArrayOf(0, 1, 2, 0, 2, 3),
+            intArrayOf(0, 1, 2, 0, 2, 3),
             floatArrayOf(0f, 0f, 1f, 0f, 1f, 1f, 0f, 1f)
         )
     }
@@ -823,7 +823,7 @@ class GameRenderer(
                 0.055f, 0.065f, 0.085f,
                 0.055f, 0.065f, 0.085f
             ),
-            shortArrayOf(0, 1, 2, 0, 2, 3)
+            intArrayOf(0, 1, 2, 0, 2, 3)
         )
     }
 
@@ -885,9 +885,9 @@ class GameRenderer(
                 .order(ByteOrder.nativeOrder())
                 .asFloatBuffer()
             vertices.put(vertexData).position(0)
-            val indices = ByteBuffer.allocateDirect(mesh.indices.size * 2)
+            val indices = ByteBuffer.allocateDirect(mesh.indices.size * 4)
                 .order(ByteOrder.nativeOrder())
-                .asShortBuffer()
+                .asIntBuffer()
             indices.put(mesh.indices).position(0)
 
             vertexBuffer = IntArray(1)
@@ -904,7 +904,7 @@ class GameRenderer(
             GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER, indexBuffer[0])
             GLES30.glBufferData(
                 GLES30.GL_ELEMENT_ARRAY_BUFFER,
-                mesh.indices.size * 2,
+                mesh.indices.size * 4,
                 indices,
                 GLES30.GL_STATIC_DRAW
             )
@@ -923,7 +923,7 @@ class GameRenderer(
             GLES30.glVertexAttribPointer(2, 3, GLES30.GL_FLOAT, false, stride, 6 * 4)
             GLES30.glEnableVertexAttribArray(3)
             GLES30.glVertexAttribPointer(3, 2, GLES30.GL_FLOAT, false, stride, 9 * 4)
-            GLES30.glDrawElements(GLES30.GL_TRIANGLES, count, GLES30.GL_UNSIGNED_SHORT, 0)
+            GLES30.glDrawElements(GLES30.GL_TRIANGLES, count, GLES30.GL_UNSIGNED_INT, 0)
             GLES30.glDisableVertexAttribArray(0)
             GLES30.glDisableVertexAttribArray(1)
             GLES30.glDisableVertexAttribArray(2)

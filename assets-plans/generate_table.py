@@ -37,17 +37,18 @@ CUSHION_TOP = CLOTH_TOP + 0.036        # 63.5% of the ball diameter
 
 # Pocket geometry: the cloth hole is the slate opening, the rail hole is the
 # casting and the mouth is the gap left between cushion tips.
-CORNER_RAIL_R = 0.080          # hole through the rail wood
+CORNER_RAIL_R = 0.072          # hole through the rail wood
 CORNER_MOUTH = 0.116           # diagonal between cushion tips
 CORNER_TIP = CORNER_MOUTH / math.sqrt(2.0)   # setback along each rail
 
-SIDE_RAIL_R = 0.082
+SIDE_RAIL_R = 0.074
 SIDE_MOUTH = 0.127
 SIDE_TIP = SIDE_MOUTH / 2.0
 
-WELL_OUTER = CORNER_RAIL_R
+# The cup overlaps the rail hole, so the rail cut never shows a ring gap.
+WELL_OUTER = 0.075
 WELL_INNER = 0.068
-SIDE_WELL_OUTER = SIDE_RAIL_R
+SIDE_WELL_OUTER = 0.077
 SIDE_WELL_INNER = 0.070
 WELL_BOTTOM = 0.585
 
@@ -131,13 +132,17 @@ SLATE_Z = (SLATE_TOP + SLATE_BOTTOM) / 2.0
 
 
 def hole_center(x: float, y: float, corner: bool) -> tuple[float, float]:
-    """Visible pocket centre, pushed out of the playing surface by the hole
-    radius plus the shelf.  The mouth stays on the cushion line; the hole is a
-    full circle entirely inside the rail and the green cloth forms the shelf."""
+    """Visible pocket centre, one shelf behind the mouth line.
+
+    For a corner the mouth line is CORNER_MOUTH / 2 inside the playing corner,
+    so the centre only has to move (radius + shelf - mouth / 2) along the
+    diagonal.  Measuring that distance from the corner instead pushed the hole
+    outwards and left an 83 mm wood shelf between the mouth and the cup.
+    """
     if corner:
         sx = 1.0 if x > 0 else -1.0
         sy = 1.0 if y > 0 else -1.0
-        offset = (WELL_INNER + SHELF) / math.sqrt(2.0)
+        offset = ((WELL_INNER + SHELF) - CORNER_MOUTH / 2.0) / math.sqrt(2.0)
         return x + sx * offset, y + sy * offset
     sy = 1.0 if y > 0 else -1.0
     return 0.0, y + sy * (SIDE_WELL_INNER + SHELF)
@@ -254,7 +259,7 @@ def build_rails() -> None:
                 (p[1], p[2], p[3]) for p in POCKETS if p[0] == name
             )
             hx, hy = hole_center(x, y, corner)
-            radius = (CORNER_RAIL_R if corner else SIDE_RAIL_R) + 0.001
+            radius = CORNER_RAIL_R if corner else SIDE_RAIL_R
             hole(rail, f"CUT_RAIL_{name}", hx, hy, radius,
                  RAIL_BOTTOM - 0.01, RAIL_TOP + 0.01)
 
@@ -335,16 +340,24 @@ def build_pockets() -> None:
 # 5. Apron, legs and rail sights
 # --------------------------------------------------------------------------- #
 def build_apron_and_legs() -> None:
-    apron_top = RAIL_BOTTOM - 0.001
+    # Closed four-sided frame, not a solid box.  The top tucks 3 mm into the
+    # rail; the only cuts are the six pocket cups.
+    apron_top = RAIL_BOTTOM + 0.003
     z_mid = (APRON_BOTTOM + apron_top) / 2.0
+    height = apron_top - APRON_BOTTOM
     cube("SM_Apron", (0.0, 0.0, z_mid),
-         (FRAME_HALF_L * 2.0, FRAME_HALF_W * 2.0, apron_top - APRON_BOTTOM))
+         (FRAME_HALF_L * 2.0 - 0.006, FRAME_HALF_W * 2.0 - 0.006, height))
+    cube("APRON_INNER", (0.0, 0.0, z_mid),
+         (2.660, 1.390, height + 0.04))
+    op("boolean", object="SM_Apron", operand="APRON_INNER",
+       operation="difference", apply=True)
+    op("delete", object="APRON_INNER")
     for name, x, y, corner in POCKETS:
         hx, hy = hole_center(x, y, corner)
-        radius = (WELL_OUTER if corner else SIDE_WELL_OUTER) + 0.002
+        radius = (WELL_OUTER if corner else SIDE_WELL_OUTER) - 0.002
         hole("SM_Apron", f"CUT_APRON_{name}", hx, hy, radius,
              APRON_BOTTOM - 0.01, apron_top + 0.01)
-    bevel("SM_Apron", 0.0025, 2)
+    bevel("SM_Apron", 0.003, 2)
     material("SM_Apron", "MAT_Wood", (0.170, 0.072, 0.034), 0.48)
 
     legs = []
@@ -399,16 +412,12 @@ def build_scene() -> None:
        look_at=(0.0, 0.0, 0.62), lens=50)
     op("camera", name="CAM-top", location=(0.0, -0.01, 5.8),
        look_at=(0.0, 0.0, 0.60), lens=50)
-    op("camera", name="CAM-pocket", location=(2.35, -2.25, 1.60),
-       look_at=(1.08, -0.56, 0.76), lens=75)
     op("light", kind="sun", name="LGT-key", location=(2.5, -2.5, 6.0), energy=4.0)
     op("light", kind="area", name="LGT-fill", location=(-2.5, 2.0, 3.0), energy=400.0)
     op("render", path="renders/preview.png", resolution_x=1100, resolution_y=850,
        engine="eevee", samples=64, camera="CAM-main")
     op("render", path="renders/preview_top.png", resolution_x=1000, resolution_y=1000,
        engine="eevee", samples=64, camera="CAM-top")
-    op("render", path="renders/preview_pocket.png", resolution_x=1000, resolution_y=800,
-       engine="eevee", samples=64, camera="CAM-pocket")
     op("export", path="artifacts/table.glb", format="glb")
     op("save", path="output.blend")
 

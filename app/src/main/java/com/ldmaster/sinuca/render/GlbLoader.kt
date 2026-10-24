@@ -11,7 +11,7 @@ class MeshData(
     val positions: FloatArray,
     val normals: FloatArray,
     val colors: FloatArray,
-    val indices: ShortArray,
+    val indices: IntArray,
     val uvs: FloatArray = FloatArray((positions.size / 3) * 2)
 ) {
     val vertexCount: Int get() = positions.size / 3
@@ -264,12 +264,11 @@ object GlbLoader {
         }
 
         fun build(): MeshData {
-            val indexArray = ShortArray(indices.size) { indices[it].toShort() }
             return MeshData(
                 positions.toFloatArray(),
                 normals.toFloatArray(),
                 colors.toFloatArray(),
-                indexArray,
+                indices.toIntArray(),
                 uvs.toFloatArray()
             )
         }

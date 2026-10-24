@@ -21,26 +21,34 @@ feita nos dois lugares.
 | Espessura do pano | 4 mm | feltro sobre o slate |
 | Slate | 46 mm | laje escura sob o pano |
 | Diâmetro interno do copo (canto / central) | 136 / 140 mm | furo visível da caçapa |
-| Parede do copo | 12 mm | revestimento do furo |
+| Furo no trilho (canto / central) | 144 / 148 mm | recorte do trilho; o copo o cobre |
+| Parede do copo | 7 mm | revestimento do furo |
 | Profundidade do poço | 165 mm | drop pocket |
 | Faceta de borracha | 22 mm | ponta escura da almofada |
 
 ## Geométrico
 
 - A caçapa é um **círculo completo atrás da linha da boca**, recuado pelo raio
-  interno mais um **shelf de 25 mm** (o centro fica a 93 mm da boca no canto e
-  95 mm na central). O pano e o slate **não são recortados**: a boca continua na
-  linha da almofada, a prateleira é o trilho/casting e o buraco fica inteiro na
-  madeira, sem morder o verde.
-- O copo é um tubo completo. A metade do aro voltada para a mesa é rebaixada
-  4 mm (fica abaixo do pano) para a bola entrar; a metade externa mantém o aro
-  escuro na altura do trilho. Assim o buraco aparece inteiro, sem meia-lua.
+  interno mais um **shelf de 25 mm**. No canto, a linha da boca fica 58 mm
+  dentro do canto da área de jogo (metade da boca de 116 mm); o centro fica
+  35 mm além do canto na diagonal, ou 24,75 mm em cada eixo. Medir esse recuo
+  a partir do canto em vez da linha da boca deixava 83 mm de madeira entre a
+  boca e o copo.
+- O pano e o slate são recortados **apenas nos seis círculos das caçapas**. O
+  resto do pano fica liso e inteiro; o shelf de 25 mm entre a linha da boca e o
+  aro do copo continua coberto de pano.
+- O copo é um tubo fechado embaixo. A metade do aro voltada para a mesa é
+  rebaixada para logo acima do pano, para a bola entrar; a metade externa sobe
+  até a altura do trilho e recebe um aro metálico fino. O copo é 3 mm maior que
+  o furo do trilho e 2 mm maior que o recorte do apron, de modo que as bordas
+  ficam sempre sobrepostas e nenhuma fresta aparece.
 - As pontas das almofadas são recuadas para abrir as bocas (82,0 mm em cada
   direção no canto, 63,5 mm de cada lado na central) e recebem facetas escuras
   de 22 mm.
-- O pano (4 mm) e o slate (46 mm) terminam na boca e não são cortados pela
-  caçapa; o buraco está 25 mm atrás, todo no trilho, e o slate escuro aparece
-  sob o copo. O pano permanece inteiro até a linha da almofada.
+- O pano (4 mm) e o slate (46 mm) avançam até a boca e são recortados só no
+  círculo do copo. O apron é uma moldura fechada nos quatro lados, com o topo
+  3 mm dentro do trilho e recortes apenas nas seis caçapas; os painéis curtos
+  existem e recebem o recorte circular da caçapa de canto.
 
 ## Física correspondente
 
