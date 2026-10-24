@@ -132,6 +132,7 @@ class GameActivity : Activity() {
 
         surface = GLSurfaceView(this).apply {
             setEGLContextClientVersion(3)
+            setEGLConfigChooser(8, 8, 8, 8, 24, 0)
             setRenderer(renderer)
             renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
         }

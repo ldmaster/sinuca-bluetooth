@@ -35,9 +35,8 @@ Vistas extras: [100% de cima, com as caçapas](docs/screenshot-top.png) ·
   ao recorte do apron, então não há fresta nem estrutura visível por dentro.
   O apron é uma moldura fechada nos quatro lados, com painéis curtos e jaw caps
   nas bocas. Nada ultrapassa a moldura.
-- Bolas de 64×48 segmentos com textura 768×384 de número/listra, brilho
-  especular e uma luz pontual sobre a mesa para dar volume às bolas de cor
-  única.
+- Bolas de 64×48 segmentos com textura 1024×512 de número/listra, mipmap, filtro
+  anisotrópico, fresnel e reflexo do ambiente.
 - Física própria calibrada contra a mesa real: atrito de rolamento + arrasto,
   subpassos de 0,45 mm, colisão por cápsula nas almofadas (mandíbulas
   arredondadas), restituição 0,88 nas tabelas e direção da bola-alvo igual à
@@ -75,8 +74,9 @@ Vistas extras: [100% de cima, com as caçapas](docs/screenshot-top.png) ·
   chance de escolher uma tacada pior. A decisão roda em thread própria,
   mostrando **IA PENSANDO** no HUD.
 
-- **Quatro temas de mesa** — Heritage Club, Arena Matte, Foundry Loft e Neo Sport —, cada um com um GLB próprio. O botão **Tema da mesa** no menu principal troca o tema, guarda a escolha em SharedPreferences e o renderer carrega o GLB correspondente.
-- **Cinco texturas 4K** — Scan Fidelity, Cinematic Wear, Clean Premium, Procedural Infinite e Mobile Atlas —, selecionadas pelo botão **Textura 4K**. Cada tema × textura forma **20 combinações**. O detalhe é amostrado em coordenadas de mundo (triplanar) e aplicado **só na madeira**: altura/rugosidade/AO mudam o grão, o desgaste e o brilho dos trilhos, apron e pernas; o pano fica liso. O botão **Qualidade 4K** escolhe entre **1080 detalhado** (padrão: mapa autoral 1080²), **2K detalhado** (mapa autoral 2048²), **Literal** (mapas autorais 4096×4096) e **Procedural** (detalhe calculado no shader, APK leve); são 15 mapas autorais (5 estilos × 3 resoluções) e a escolha fica em SharedPreferences.
+- **Quatro temas de mesa** — Heritage Club, Arena Matte, Foundry Loft e Neo Sport —, cada um com um GLB próprio. O botão **Tema da mesa** no menu principal troca o tema, guarda a escolha em SharedPreferences e o renderer carrega o GLB correspondente. O tema também define a **classe de superfície** de cada material: `MAT_Wood` é nogueira no Heritage, alumínio escovado no Arena, aço no Foundry e cerâmica no Neo, então o veio procedural só aparece onde existe madeira.
+- **Cinco texturas 4K** — Scan Fidelity, Cinematic Wear, Clean Premium, Procedural Infinite e Mobile Atlas —, selecionadas pelo botão **Textura 4K**. Cada tema × textura forma **20 combinações**; as 20 miniaturas do menu são capturas do próprio renderer. O veio é procedural em coordenadas de mundo (anéis de 42 bandas/m, grão esticado, poros com fade por `fwidth`), o verniz vem do `roughnessFactor` do glTF e o mapa `detail_*` entra como altura/rugosidade/AO, nunca como cor. O botão **Qualidade 4K** escolhe entre **1080 detalhado** (padrão), **720**, **540**, **2K detalhado**, **Literal** (mapas 4096×4096) e **Procedural** (detalhe calculado no shader, APK leve); a escolha fica em SharedPreferences.
+- **Pipeline de render** — cena em HDR (`RGBA16F` quando o driver suporta, senão `RGBA8`) com MSAA 4× em renderbuffer e resolve só de cor; shadow map 2048² (1024² no emulador) com PCF 5×5, culling de faces frontais no passe de profundidade; PBR GGX + Smith + Schlick com `metallicFactor`/`roughnessFactor` lidos do glTF; ambiente analítico para reflexos; e composite com bloom, ACES, vinheta e grão. O EGL é `RGBA8888` + depth 24, não o RGB565 padrão do `GLSurfaceView`.
 
 ## Requisitos
 
@@ -160,9 +160,13 @@ app/src/main/java/com/ldmaster/sinuca/
 │   ├── Wire.kt              protocolo JSON por linha
 │   └── Session.kt
 ├── render/
-│   ├── GlbLoader.kt         parser GLB (glTF 2.0) → VBO com cores/UVs
-│   └── GameRenderer.kt      GLES 3.0: mesa, bolas texturizadas, mira,
-│                            indicador de direção e trajetória prevista
+│   ├── GlbLoader.kt         parser GLB (glTF 2.0) → VBO com cor/UV/material
+│   ├── GameRenderer.kt      orquestra sombra → cena HDR → pós; mira e trajetória
+│   ├── Shaders.kt           todo o GLSL: cena PBR, profundidade, bloom, composite
+│   ├── SceneTarget.kt       FBO MSAA/HDR e resolve para textura
+│   ├── ShadowMap.kt         depth map da luz-chave e matriz ortográfica
+│   ├── PostFx.kt            bright/blur, ACES, vinheta e grão
+│   └── Gl.kt                compilação de shader com fallback e quad full-screen
 └── ui/HudView.kt            HUD compacto, força, efeito e botões
 ```
 
@@ -181,7 +185,9 @@ copos, cobre as pontas das almofadas com facetas e mantém as superfícies sem
 sobreposição coplanar. Os quatro temas são fechados por
 `assets-plans/sculpt_apron.py`, que reconstrói o apron como moldura nos quatro
 lados, os trilhos, os copos e os jaw caps e salva o `.blend` pronto para
-exportar. Para regerar a base:
+exportar. Em seguida, `assets-plans/smooth_table.py` aplica a escala, arredonda
+as quinas que ainda não tinham bevel (pernas, molduras, medalhão) e liga o
+shading suave por ângulo em todas as peças. Para regerar a base:
 
 ```bash
 python3 assets-plans/generate_table.py

@@ -65,6 +65,25 @@ feita nos dois lugares.
   diâmetro da bola (127 − 57 ≈ 70 mm, ou ±35 mm de centro), que é o que o
   laboratório mede.
 
+## Acabamento e render
+
+- As quinas são arredondadas por `assets-plans/smooth_table.py`, que roda depois do
+  `sculpt_apron.py`: aplica a escala do objeto (as peças são autoradas em escala
+  não uniforme), adiciona bevel de 1,4 mm nas pernas, 0,6 mm nas molduras e 0,8 mm
+  no medalhão, e faz `shade_smooth_by_angle(35°)` em tudo. Trilhos, apron, jaw caps e
+  copos já saem com bevel do sculpt e não recebem um segundo; pano, almofadas,
+  facetas e miras ficam intactos para preservar o nariz da almofada (referência de
+  física) e as miras de 3 mm.
+- O bevel encolhe o contorno em até 2 mm; a bbox aceita essa tolerância. A malha
+  exportada fica em ~48 mil triângulos (era ~40 mil), com razão vértice/triângulo
+  caindo de 1,85 para ~0,8 por causa do shading suave.
+- O material do GLB é a única fonte de cor e acabamento: `metallicFactor` e
+  `roughnessFactor` são lidos por vértice junto com a classe de superfície. A classe
+  vem de `(tema, material)`, porque o slot `MAT_Wood` é nogueira, alumínio, aço e
+  cerâmica nos quatro temas.
+- O mapa `detail_*` é dado (`R` altura, `G` rugosidade, `B` AO), amostrado em espaço
+  de mundo e aplicado só como rugosidade/oclusão; a cor da madeira é procedural.
+
 ## Fontes
 
 - [WPA — Pool Table Dimensions & Regulation Size](https://www.wpa-pool.com/pool-table-dimensions-regulation-size-explained/)

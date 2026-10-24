@@ -1,6 +1,7 @@
 package com.ldmaster.sinuca.render
 
 import android.content.Context
+import com.ldmaster.sinuca.game.TableSurface
 import org.json.JSONArray
 import org.json.JSONObject
 import java.nio.ByteBuffer
@@ -12,19 +13,20 @@ class MeshData(
     val normals: FloatArray,
     val colors: FloatArray,
     val indices: IntArray,
-    val uvs: FloatArray = FloatArray((positions.size / 3) * 2)
+    val uvs: FloatArray = FloatArray((positions.size / 3) * 2),
+    val materials: FloatArray
 ) {
     val vertexCount: Int get() = positions.size / 3
 }
 
 object GlbLoader {
 
-    fun load(context: Context, assetPath: String): MeshData {
+    fun load(context: Context, assetPath: String, themeKey: String? = null): MeshData {
         val bytes = context.assets.open(assetPath).use { it.readBytes() }
-        return parse(bytes, recenter = assetPath.contains("cue"))
+        return parse(bytes, recenter = assetPath.contains("cue"), themeKey = themeKey)
     }
 
-    fun parse(bytes: ByteArray, recenter: Boolean = false): MeshData {
+    fun parse(bytes: ByteArray, recenter: Boolean = false, themeKey: String? = null): MeshData {
         val buffer = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
         require(buffer.int == 0x46546C67) { "not a GLB file" }
         require(buffer.int == 2) { "unsupported GLB version" }
@@ -71,10 +73,10 @@ object GlbLoader {
 
         val out = Builder()
         for (root in roots) {
-            walk(root, Mat4.identity(), document, nodes, reader, out)
+            walk(root, Mat4.identity(), document, nodes, reader, out, themeKey)
         }
         if (out.positions.isEmpty()) {
-            out.addVertex(0f, 0f, 0f, 0f, 1f, 0f, 0.8f, 0.8f, 0.8f)
+            out.addVertex(0f, 0f, 0f, 0f, 1f, 0f, 0.8f, 0.8f, 0.8f, 0f, 0.6f, TableSurface.CERAMIC)
             out.uvs.add(0f)
             out.uvs.add(0f)
             out.indices.add(0)
@@ -89,7 +91,8 @@ object GlbLoader {
         document: JSONObject,
         nodes: JSONArray,
         reader: AccessorReader,
-        out: Builder
+        out: Builder,
+        themeKey: String?
     ) {
         val node = nodes.getJSONObject(index)
         val local = node.optJSONArray("matrix")?.let { Mat4.fromJson(it) }
@@ -105,13 +108,13 @@ object GlbLoader {
             val mesh = document.getJSONArray("meshes").getJSONObject(meshIndex)
             val primitives = mesh.optJSONArray("primitives") ?: JSONArray()
             for (p in 0 until primitives.length()) {
-                addPrimitive(primitives.getJSONObject(p), world, document, reader, out)
+                addPrimitive(primitives.getJSONObject(p), world, document, reader, out, themeKey)
             }
         }
 
         val children = node.optJSONArray("children") ?: return
         for (c in 0 until children.length()) {
-            walk(children.getInt(c), world, document, nodes, reader, out)
+            walk(children.getInt(c), world, document, nodes, reader, out, themeKey)
         }
     }
 
@@ -120,7 +123,8 @@ object GlbLoader {
         world: FloatArray,
         document: JSONObject,
         reader: AccessorReader,
-        out: Builder
+        out: Builder,
+        themeKey: String?
     ) {
         val attributes = primitive.optJSONObject("attributes") ?: return
         if (!attributes.has("POSITION")) return
@@ -135,7 +139,7 @@ object GlbLoader {
         } else {
             null
         }
-        val color = materialColor(primitive, document)
+        val surface = material(primitive, document, themeKey)
         val normalMatrix = Mat4.normalMatrix(world)
         val base = out.positions.size / 3
         val count = positions.size / 3
@@ -174,7 +178,11 @@ object GlbLoader {
                 ny = 1f
                 nz = 0f
             }
-            out.addVertex(point[0], point[1], point[2], nx, ny, nz, color[0], color[1], color[2])
+            out.addVertex(
+                point[0], point[1], point[2], nx, ny, nz,
+                surface.albedo[0], surface.albedo[1], surface.albedo[2],
+                surface.metallic, surface.roughness, surface.surfaceClass
+            )
             if (uvs != null) {
                 out.uvs.add(uvs[i * 2])
                 out.uvs.add(uvs[i * 2 + 1])
@@ -193,19 +201,37 @@ object GlbLoader {
         }
     }
 
-    private fun materialColor(primitive: JSONObject, document: JSONObject): FloatArray {
-        val fallback = floatArrayOf(0.75f, 0.75f, 0.75f)
+    private class Surface(
+        val albedo: FloatArray,
+        val metallic: Float,
+        val roughness: Float,
+        val surfaceClass: Float
+    )
+
+    private fun material(primitive: JSONObject, document: JSONObject, themeKey: String?): Surface {
+        val fallback = Surface(floatArrayOf(0.75f, 0.75f, 0.75f), 0f, 0.6f, TableSurface.CERAMIC)
         val materialIndex = primitive.optInt("material", -1)
         if (materialIndex < 0) return fallback
         val materials = document.optJSONArray("materials") ?: return fallback
         if (materialIndex >= materials.length()) return fallback
         val material = materials.getJSONObject(materialIndex)
         val pbr = material.optJSONObject("pbrMetallicRoughness") ?: return fallback
-        val factor = pbr.optJSONArray("baseColorFactor") ?: return fallback
-        return floatArrayOf(
-            factor.optDouble(0, 0.75).toFloat(),
-            factor.optDouble(1, 0.75).toFloat(),
-            factor.optDouble(2, 0.75).toFloat()
+        val factor = pbr.optJSONArray("baseColorFactor")
+        val albedo = if (factor == null) {
+            fallback.albedo
+        } else {
+            floatArrayOf(
+                factor.optDouble(0, 0.75).toFloat(),
+                factor.optDouble(1, 0.75).toFloat(),
+                factor.optDouble(2, 0.75).toFloat()
+            )
+        }
+        val name = material.optString("name", "")
+        return Surface(
+            albedo,
+            pbr.optDouble("metallicFactor", 0.0).toFloat().coerceIn(0f, 1f),
+            pbr.optDouble("roughnessFactor", 0.6).toFloat().coerceIn(0.04f, 1f),
+            TableSurface.classify(themeKey, name)
         )
     }
 
@@ -237,7 +263,7 @@ object GlbLoader {
                 else -> mesh.positions[index] - cz
             }
         }
-        return MeshData(positions, mesh.normals, mesh.colors, mesh.indices, mesh.uvs)
+        return MeshData(positions, mesh.normals, mesh.colors, mesh.indices, mesh.uvs, mesh.materials)
     }
 
     private class Builder {
@@ -245,12 +271,14 @@ object GlbLoader {
         val normals = ArrayList<Float>()
         val colors = ArrayList<Float>()
         val uvs = ArrayList<Float>()
+        val materials = ArrayList<Float>()
         val indices = ArrayList<Int>()
 
         fun addVertex(
             x: Float, y: Float, z: Float,
             nx: Float, ny: Float, nz: Float,
-            r: Float, g: Float, b: Float
+            r: Float, g: Float, b: Float,
+            metallic: Float, roughness: Float, surfaceClass: Float
         ) {
             positions.add(x)
             positions.add(y)
@@ -261,6 +289,9 @@ object GlbLoader {
             colors.add(r)
             colors.add(g)
             colors.add(b)
+            materials.add(metallic)
+            materials.add(roughness)
+            materials.add(surfaceClass)
         }
 
         fun build(): MeshData {
@@ -269,7 +300,8 @@ object GlbLoader {
                 normals.toFloatArray(),
                 colors.toFloatArray(),
                 indices.toIntArray(),
-                uvs.toFloatArray()
+                uvs.toFloatArray(),
+                materials.toFloatArray()
             )
         }
     }
