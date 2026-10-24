@@ -146,10 +146,43 @@ vec2 surfaceUv(vec3 p, vec3 n) {
     return vec2(p.z, p.y);
 }
 
+struct WoodStyle {
+    float contrast;
+    float bands;
+    float poreAmount;
+    float macroAmount;
+    float scratchAmount;
+    float lacquer;
+    float tint;
+};
+
+WoodStyle woodStyle(float style) {
+    WoodStyle s;
+    if (style < 0.5) {          // scan fidelity
+        s.contrast = 0.66; s.bands = 44.0; s.poreAmount = 0.26;
+        s.macroAmount = 0.16; s.scratchAmount = 0.0; s.lacquer = 0.55; s.tint = 1.00;
+    } else if (style < 1.5) {   // cinematic wear
+        s.contrast = 0.80; s.bands = 34.0; s.poreAmount = 0.36;
+        s.macroAmount = 0.30; s.scratchAmount = 1.0; s.lacquer = 0.90; s.tint = 0.86;
+    } else if (style < 2.5) {   // clean premium
+        s.contrast = 0.38; s.bands = 28.0; s.poreAmount = 0.06;
+        s.macroAmount = 0.08; s.scratchAmount = 0.0; s.lacquer = 0.30; s.tint = 1.14;
+    } else if (style < 3.5) {   // procedural infinite
+        s.contrast = 0.88; s.bands = 60.0; s.poreAmount = 0.20;
+        s.macroAmount = 0.90; s.scratchAmount = 0.0; s.lacquer = 0.50; s.tint = 1.00;
+    } else {                    // mobile atlas
+        s.contrast = 0.70; s.bands = 40.0; s.poreAmount = 0.28;
+        s.macroAmount = 0.22; s.scratchAmount = 0.15; s.lacquer = 0.60; s.tint = 1.02;
+    }
+    return s;
+}
+
 vec3 woodSurface(vec3 p, vec3 n, vec3 base, float style, inout float rough) {
+    WoodStyle s = woodStyle(style);
     vec2 uv = surfaceUv(p, n);
+
     float warp = fbm(uv * vec2(1.3, 4.0));
-    float phase = uv.y * 42.0 + warp * 4.0;
+    float phase = uv.y * s.bands + warp * 4.0;
     float band = 0.5 + 0.5 * sin(phase * 6.2831853);
     float fine = fbm(vec2(uv.x * 1.4, uv.y * 26.0));
 
@@ -157,20 +190,18 @@ vec3 woodSurface(vec3 p, vec3 n, vec3 base, float style, inout float rough) {
     float poreFade = clamp(1.0 - fwidth(poreCoord) * 0.6, 0.0, 1.0);
     float pores = mix(0.5, vnoise(vec2(uv.x * 28.0, poreCoord)), poreFade);
 
-    float macroAmount = mix(0.20, 0.58, step(2.5, style));
-    float macro = (fbm(uv * 0.35) - 0.5) * macroAmount;
-    float scratches = 0.0;
-    if (style > 0.5 && style < 1.5) {
-        scratches = smoothstep(0.60, 0.86, fbm(vec2(uv.x * 0.9, uv.y * 24.0)));
-    }
+    float macro = (fbm(uv * 0.35) - 0.5) * s.macroAmount * 2.0;
+    float scratches = s.scratchAmount *
+        smoothstep(0.58, 0.86, fbm(vec2(uv.x * 0.9, uv.y * 24.0)));
 
-    vec3 dark = base * 0.54;
-    vec3 light = base * 1.68;
+    vec3 dark = base * (1.0 - s.contrast * 0.85);
+    vec3 light = base * (1.0 + s.contrast * 1.05);
     vec3 color = mix(dark, light, clamp(band * 0.70 + fine * 0.30 + macro, 0.0, 1.0));
-    color *= 0.88 + 0.24 * pores;
-    color += vec3(0.06, 0.055, 0.05) * scratches;
+    color *= 1.0 - s.poreAmount * (pores - 0.5);
+    color += vec3(0.08, 0.075, 0.065) * scratches;
+    color *= s.tint;
 
-    rough = clamp(rough * 0.55 + 0.09 * (1.0 - band) + 0.05 * pores, 0.08, 0.55);
+    rough = clamp(rough * s.lacquer + 0.10 * (1.0 - band) + 0.05 * pores, 0.06, 0.80);
     return color;
 }
 
@@ -180,8 +211,19 @@ vec3 clothSurface(vec3 p, vec3 n, vec3 base, float style, inout float rough) {
     float fade = clamp(1.0 - fwidth(weaveCoord) * 0.7, 0.0, 1.0);
     float weave = mix(0.5, vnoise(uv * 900.0), fade);
     float pile = fbm(uv * 22.0);
+
+    float tint = 1.0;
+    float chalk = 0.0;
+    if (style > 0.5 && style < 1.5) {
+        tint = 1.10;
+        chalk = smoothstep(0.62, 0.88, fbm(vec2(uv.x * 0.7, uv.y * 30.0))) * 0.12;
+    } else if (style > 2.5 && style < 3.5) {
+        tint = 0.97;
+    } else if (style > 3.5) {
+        tint = 1.03;
+    }
     rough = 0.94;
-    return base * (0.94 + 0.10 * pile + 0.06 * (weave - 0.5) * fade);
+    return base * tint * (0.94 + 0.10 * pile + 0.06 * (weave - 0.5) * fade) + vec3(chalk);
 }
 
 vec3 metalSurface(vec3 p, vec3 n, vec3 base, float style, inout float rough) {
@@ -189,16 +231,45 @@ vec3 metalSurface(vec3 p, vec3 n, vec3 base, float style, inout float rough) {
     float brushCoord = uv.y * 380.0;
     float fade = clamp(1.0 - fwidth(brushCoord) * 0.8, 0.0, 1.0);
     float brush = mix(0.5, fbm(vec2(uv.x * 2.5, brushCoord)), fade);
-    float patina = (fbm(uv * 6.0) - 0.5) * mix(0.05, 0.35, step(1.5, style));
-    vec3 color = base * (0.92 + 0.18 * brush + patina);
-    rough = clamp(rough * (0.85 + 0.30 * brush), 0.05, 0.95);
+
+    float brushAmount = 0.18;
+    float patina = 0.0;
+    float polished = 0.0;
+    if (style < 0.5) {
+        brushAmount = 0.18;
+    } else if (style < 1.5) {
+        brushAmount = 0.32; patina = 0.40;
+    } else if (style < 2.5) {
+        brushAmount = 0.06; polished = 1.0;
+    } else if (style < 3.5) {
+        brushAmount = 0.22; patina = 0.70;
+    } else {
+        brushAmount = 0.15; patina = 0.12;
+    }
+
+    float macro = (fbm(uv * 1.2 + p.y * 0.8) - 0.5) * patina;
+    vec3 color = base * (1.0 + brushAmount * (brush - 0.5) * 2.0 + macro);
+    rough = clamp(rough * mix(1.0, 0.55, polished) * (0.90 + 0.35 * brush), 0.04, 0.95);
     return color;
 }
 
 vec3 ceramicSurface(vec3 p, vec3 n, vec3 base, float style, inout float rough) {
     float speck = fbm(p.xz * 34.0) * fbm(p.yx * 34.0);
-    vec3 color = base * (0.97 + 0.06 * speck);
-    rough = clamp(rough, 0.12, 0.75);
+    float speckAmount = 0.06;
+    float macroAmount = 0.02;
+    float gloss = 1.0;
+    if (style > 0.5 && style < 1.5) {
+        speckAmount = 0.18; macroAmount = 0.08; gloss = 1.40;
+    } else if (style > 1.5 && style < 2.5) {
+        speckAmount = 0.02; gloss = 0.60;
+    } else if (style > 2.5 && style < 3.5) {
+        speckAmount = 0.10; macroAmount = 0.14;
+    } else if (style > 3.5) {
+        speckAmount = 0.08;
+    }
+    vec3 color = base * (1.0 + speckAmount * (speck - 0.5) * 2.0
+                        + macroAmount * (fbm(p.xz * 0.8) - 0.5) * 2.0);
+    rough = clamp(rough * gloss, 0.06, 0.90);
     return color;
 }
 

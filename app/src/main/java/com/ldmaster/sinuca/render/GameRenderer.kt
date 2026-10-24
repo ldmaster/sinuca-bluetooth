@@ -654,7 +654,7 @@ class GameRenderer(
         GLES30.glUniform1f(uUsePattern, if (usePattern) 1f else 0f)
         GLES30.glUniform1f(uStyle, textureStyle.ordinal.toFloat())
         GLES30.glUniform1f(uDetailScale, detailScale())
-        GLES30.glUniform1f(uDetailBase, detailBase())
+        GLES30.glUniform1f(uDetailBase, detailBase() * styleAtlasWeight())
         GLES30.glUniform3f(uColor, color[0], color[1], color[2])
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, if (useTexture) textureId else 0)
@@ -686,6 +686,17 @@ class GameRenderer(
         GLES30.glUniform1i(uCopyImage, 0)
         Gl.drawQuad(copyQuad)
         GLES30.glEnable(GLES30.GL_DEPTH_TEST)
+    }
+
+    /**
+     * How much of the look comes from the literal detail atlas. Mobile Atlas
+     * leans on it, Procedural Infinite ignores it, and the other styles keep it
+     * as a light roughness/occlusion supplement.
+     */
+    private fun styleAtlasWeight(): Float = when (textureStyle) {
+        TableTexture.ATLAS -> 1.0f
+        TableTexture.PROCEDURAL -> 0.0f
+        else -> 0.55f
     }
 
     private fun detailScale(): Float = when (textureQuality) {
