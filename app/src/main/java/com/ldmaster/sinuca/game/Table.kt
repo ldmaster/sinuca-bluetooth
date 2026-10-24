@@ -7,6 +7,7 @@ object Table {
     const val HALF_WIDTH = 0.635
     const val BALL_RADIUS = 0.028575
     const val CLOTH_TOP = 0.75
+    const val RAIL_TOP = 0.800
     const val BALL_Y = CLOTH_TOP + BALL_RADIUS
 
     const val CORNER_MOUTH = 0.116

@@ -458,14 +458,39 @@ class GameRenderer(
         val centerZ = cue.z - directionZ * offset
         val theta = atan2(directionZ, -directionX)
 
+        // Raise the butt just enough for the shaft to clear the rail behind
+        // the cue ball, keeping the tip at ball height.
+        val railDistance = railDistance(cue.x, cue.z, -directionX, -directionZ)
+        val clearance = Table.RAIL_TOP + CUE_RADIUS.toDouble() - Table.BALL_Y
+        val pitch = if (railDistance <= cueHalfLength.toDouble() * 2.0) {
+            kotlin.math.atan(clearance / railDistance.coerceAtLeast(0.05))
+                .coerceIn(0.0, Math.toRadians(15.0))
+        } else {
+            0.0
+        }
+        val lift = (sin(pitch) * cueHalfLength.toDouble()).toFloat()
+
         Matrix.setIdentityM(model, 0)
-        Matrix.translateM(model, 0, centerX.toFloat(), Table.BALL_Y.toFloat(), centerZ.toFloat())
+        Matrix.translateM(
+            model, 0,
+            centerX.toFloat(), (Table.BALL_Y + lift).toFloat(), centerZ.toFloat()
+        )
         Matrix.rotateM(model, 0, Math.toDegrees(theta).toFloat(), 0f, 1f, 0f)
+        Matrix.rotateM(model, 0, Math.toDegrees(pitch).toFloat(), 0f, 0f, 1f)
         val mvp = FloatArray(16)
         Matrix.multiplyMM(mvp, 0, viewProjection, 0, model, 0)
         GLES30.glUseProgram(program)
         GLES30.glUniform3f(uEye, eye[0], eye[1], eye[2])
         drawMesh(mesh, mvp, model, useVertexColor = false, stripe = false, color = WHITE)
+    }
+
+    private fun railDistance(x: Double, z: Double, dx: Double, dz: Double): Double {
+        var distance = Double.MAX_VALUE
+        if (dx > 1e-6) distance = minOf(distance, (Table.HALF_LENGTH - x) / dx)
+        else if (dx < -1e-6) distance = minOf(distance, (-Table.HALF_LENGTH - x) / dx)
+        if (dz > 1e-6) distance = minOf(distance, (Table.HALF_WIDTH - z) / dz)
+        else if (dz < -1e-6) distance = minOf(distance, (-Table.HALF_WIDTH - z) / dz)
+        return distance.coerceAtLeast(0.0)
     }
 
     private fun drawMesh(
@@ -505,10 +530,12 @@ class GameRenderer(
             else -> 2.0f
         }
         val baseMix = when (textureQuality) {
-            TextureQuality.DETAILED_540, TextureQuality.DETAILED_720,
-            TextureQuality.DETAILED_1080 -> 0.0f
-            TextureQuality.DETAILED_2K -> 0.25f
-            else -> 0.5f
+            TextureQuality.DETAILED_540 -> 0.50f
+            TextureQuality.DETAILED_720 -> 0.65f
+            TextureQuality.DETAILED_1080 -> 0.80f
+            TextureQuality.DETAILED_2K -> 0.90f
+            TextureQuality.LITERAL -> 1.00f
+            else -> 0.0f
         }
         GLES30.glUniform1f(uDetailStrength, strength)
         GLES30.glUniform1f(uDetailScale, scale)
@@ -936,6 +963,7 @@ class GameRenderer(
     companion object {
         private const val TAG = "GameRenderer"
         private const val AIM_SENSITIVITY_DP = 0.0032f
+        private const val CUE_RADIUS = 0.016
 
         private val IDENTITY = floatArrayOf(
             1f, 0f, 0f, 0f,
@@ -1050,21 +1078,40 @@ void main() {
     vec3 n = normalize(vNormal);
     float mapRoughness = 0.5;
     if (uUseLiteral > 0.5) {
-        vec3 d = texture(uDetailMap, vUv * uDetailScale).rgb;
+        // World-space triplanar sampling: the table's primitive UVs are
+        // stretched and leave most rail faces on one texel, so the wood grain
+        // only reads if it is mapped in metres.
+        vec3 blend = abs(n);
+        float blendSum = blend.x + blend.y + blend.z;
+        blend = blendSum > 0.0001 ? blend / blendSum : vec3(0.0, 1.0, 0.0);
+        vec3 p = vWorld * (uDetailScale * 3.0);
+        vec3 d = texture(uDetailMap, p.zy).rgb * blend.x
+               + texture(uDetailMap, p.xz).rgb * blend.y
+               + texture(uDetailMap, p.xy).rgb * blend.z;
         float height = d.r;
         float roughness = d.g;
         float ao = d.b;
         float maxBase = max(base.r, max(base.g, base.b));
         float minBase = min(base.r, min(base.g, base.b));
         float saturation = (maxBase - minBase) / max(maxBase, 0.001);
+        // Distinguish felt from wood by channel ratios, not by "is red".
+        // The brown Heritage/Foundry wood is red-dominant and the Arena wood
+        // is blue-gray; the old tests classified both as cloth and disabled
+        // the detail on the very surfaces it was meant for.
         float clothGreen = step(base.r * 1.15, base.g) * step(base.b * 1.15, base.g);
-        float clothBlue = step(base.r * 1.15, base.b) * step(base.g * 1.05, base.b);
-        float clothRed = step(base.g * 1.8, base.r) * step(base.b * 1.8, base.r) *
+        float clothBlue = step(base.r * 2.0, base.b) * step(base.r * 2.0, base.g);
+        float clothRed = step(base.g, base.r * 0.28) * step(base.b, base.r * 0.30) *
             step(0.35, saturation);
         float cloth = clamp(clothGreen + clothBlue + clothRed, 0.0, 1.0);
-        float relief = 1.0 - cloth * 0.92;
-        base *= 1.0 + (height - 0.5) * 0.90 * uDetailStrength * uDetailBase * relief;
-        base *= 0.85 + 0.15 * ao;
+        float relief = 1.0 - cloth;
+        // Height, roughness and AO all carry the finish.  Combining them
+        // makes the five styles read on the wood while the cloth mask keeps
+        // the felt perfectly smooth.
+        float finish = ((height - 0.5) * 1.00 +
+                        (roughness - 0.5) * 1.00 +
+                        (ao - 0.65) * 0.60) *
+            uDetailStrength * uDetailBase * relief;
+        base *= clamp(1.0 + finish, 0.50, 1.50);
         n = normalize(n + vec3(
             (height - 0.5) * 0.80 * uDetailStrength * relief,
             0.0,

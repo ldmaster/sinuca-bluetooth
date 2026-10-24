@@ -55,7 +55,9 @@ Vistas extras: [100% de cima, com as caçapas](docs/screenshot-top.png) ·
   atuais (incluindo tabelas e caçapas) e desenha o caminho da branca e da
   primeira bola atingida. A simulação roda em **thread própria**, com física
   reutilizada e pedidos coalescidos: arrastar a mira não bloqueia a renderização.
-- Mira por arrasto relativo, sem salto para onde o dedo tocou.
+- Mira por arrasto relativo, sem salto para onde o dedo tocou. O taco se inclina
+  quando a branca está perto da tabela: a ponta fica na bola e a traseira sobe
+  o suficiente para o shaft passar por cima do trilho, sem atravessar a mesa.
 - Barra de força vertical discreta, botão de tacada pequeno e HUD sem painéis:
   bolas encaçapadas, vez, ícones de câmera/trajetória/sair e efeito ficam nos
   cantos.
@@ -74,7 +76,7 @@ Vistas extras: [100% de cima, com as caçapas](docs/screenshot-top.png) ·
   mostrando **IA PENSANDO** no HUD.
 
 - **Quatro temas de mesa** — Heritage Club, Arena Matte, Foundry Loft e Neo Sport —, cada um com um GLB próprio. O botão **Tema da mesa** no menu principal troca o tema, guarda a escolha em SharedPreferences e o renderer carrega o GLB correspondente.
-- **Cinco texturas 4K** — Scan Fidelity, Cinematic Wear, Clean Premium, Procedural Infinite e Mobile Atlas —, selecionadas pelo botão **Textura 4K**. Cada tema × textura forma **20 combinações**. O botão **Qualidade 4K** escolhe entre **1080 detalhado** (padrão: mapa autoral 1080², relevo aplicado só em normal/rugosidade, sem topografia), **2K detalhado** (mapa autoral 2048²), **Literal** (mapas autorais 4096×4096) e **Procedural** (detalhe calculado no shader, APK leve); são 15 mapas autorais (5 estilos × 3 resoluções) e a escolha fica em SharedPreferences.
+- **Cinco texturas 4K** — Scan Fidelity, Cinematic Wear, Clean Premium, Procedural Infinite e Mobile Atlas —, selecionadas pelo botão **Textura 4K**. Cada tema × textura forma **20 combinações**. O detalhe é amostrado em coordenadas de mundo (triplanar) e aplicado **só na madeira**: altura/rugosidade/AO mudam o grão, o desgaste e o brilho dos trilhos, apron e pernas; o pano fica liso. O botão **Qualidade 4K** escolhe entre **1080 detalhado** (padrão: mapa autoral 1080²), **2K detalhado** (mapa autoral 2048²), **Literal** (mapas autorais 4096×4096) e **Procedural** (detalhe calculado no shader, APK leve); são 15 mapas autorais (5 estilos × 3 resoluções) e a escolha fica em SharedPreferences.
 
 ## Requisitos
 
