@@ -118,8 +118,13 @@ class HudView(
             localPotted = state.potted0
             opponentPotted = state.potted1
         }
-        drawPottedRow(canvas, "V", localPotted, dp(18f))
-        drawPottedRow(canvas, "A", opponentPotted, dp(36f))
+        val opponentLabel = if (state.aiLevel.isNotEmpty()) {
+            "IA · ${state.aiLevel.uppercase()}"
+        } else {
+            "ADV"
+        }
+        drawPottedRow(canvas, "VOCÊ", localPotted, dp(18f))
+        drawPottedRow(canvas, opponentLabel, opponentPotted, dp(36f))
     }
 
     private fun drawPottedRow(canvas: Canvas, label: String, potted: List<Int>, centerY: Float) {
@@ -129,7 +134,7 @@ class HudView(
         canvas.drawText(label, dp(12f), centerY + dp(3f), textPaint)
 
         val radius = dp(5f)
-        var x = dp(24f) + radius
+        var x = dp(12f) + textPaint.measureText(label) + dp(6f) + radius
         for (number in potted) {
             fill.color = ballColor(number)
             canvas.drawCircle(x, centerY, radius, fill)
@@ -165,7 +170,8 @@ class HudView(
         textPaint.textAlign = Paint.Align.CENTER
         textPaint.textSize = dp(10f)
         val width = textPaint.measureText(status)
-        fill.color = Color.parseColor("#66000000")
+        val aiTurn = state.aiLevel.isNotEmpty() && !state.canShoot && !state.practice
+        fill.color = Color.parseColor(if (aiTurn || state.aiThinking) "#665B2E8B" else "#66000000")
         canvas.drawRoundRect(
             w / 2f - width / 2f - dp(7f),
             dp(8f),

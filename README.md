@@ -68,11 +68,23 @@ Vistas extras: [100% de cima, com as caçapas](docs/screenshot-top.png) ·
   (aparelhos pareados + descoberta).
 - Modo **Treino local** para jogar sozinho e testar tudo sem Bluetooth.
 - Modo **Jogar contra IA**, 100% local e offline, com níveis **Fácil**,
-  **Médio** e **Difícil**. O agente escolhe a bola e a caçapa, filtra os
-  caminhos livres, simula as melhores tacadas com a física do jogo e escolhe a
-  que encaçapa/defende melhor; o nível controla a busca, o erro de mira e a
-  chance de escolher uma tacada pior. A decisão roda em thread própria,
-  mostrando **IA PENSANDO** no HUD.
+  **Médio**, **Difícil** e **Extremo**. O agente escolhe a bola e a caçapa,
+  filtra os caminhos livres, simula as melhores tacadas com a física do jogo e
+  escolhe a que encaçapa/defende melhor; o nível controla a busca, o erro de mira
+  e a chance de escolher uma tacada pior. Difícil e Extremo **pensam de 2,8 a
+  5,4 s** antes de jogar, e quanto mais alto o nível mais tempo de busca e
+  refinamento ele tem. O Extremo ainda bonifica tacadas que encaçapam mais de
+  uma bola. A decisão roda em thread própria, mostrando **IA PENSANDO** no HUD.
+- **Aprendizado automático da IA** — Difícil e Extremo guardam, por nível, a
+  taxa real de encaixe por família de tacada (ângulo de corte × distância ×
+  força) e passam a evitar as famílias que falham. O modelo fica em
+  `sinuca_ai_memory` e aparece no hall ("aprendeu com N tacadas · X% de
+  encaixe"). O `AiMemory` é testado sem Android (store injetável).
+- **Hall gamificado** — placar de vitórias/derrotas/sequência, medalhas por
+  nível vencido, cards de modo (Treino, Contra a IA, Multiplayer), chips de
+  dificuldade e os ajustes de mesa (tema, textura, qualidade) agrupados num só
+  cartão. Contra a IA, o hall e o HUD deixam explícito que o **jogador 2 é a
+  IA** e em qual nível.
 
 - **Quatro temas de mesa** — Heritage Club, Arena Matte, Foundry Loft e Neo Sport —, cada um com um GLB próprio. O botão **Tema da mesa** no menu principal troca o tema, guarda a escolha em SharedPreferences e o renderer carrega o GLB correspondente. O tema também define a **classe de superfície** de cada material: `MAT_Wood` é nogueira no Heritage, alumínio escovado no Arena, aço no Foundry e cerâmica no Neo, então o veio procedural só aparece onde existe madeira.
 - **Cinco texturas 4K** — Scan Fidelity, Cinematic Wear, Clean Premium, Procedural Infinite e Mobile Atlas —, selecionadas pelo botão **Textura 4K**. Cada tema × textura forma **20 combinações**; as 20 miniaturas do menu são capturas do próprio renderer. Cada estilo é um preset completo: contraste do veio, densidade dos anéis (28–60 bandas/m), poros, variação macro, arranhões e verniz (roughness 0,06–0,80). O veio é procedural em coordenadas de mundo, o verniz vem do `roughnessFactor` do glTF e o mapa `detail_*` entra como altura/rugosidade/AO, nunca como cor (o estilo Mobile Atlas usa o atlas com peso 1,0; o Procedural Infinite ignora). O botão **Qualidade 4K** escolhe entre **1080 detalhado** (padrão), **720**, **540**, **2K detalhado**, **Literal** (mapas 4096×4096) e **Procedural** (detalhe calculado no shader, APK leve); a escolha fica em SharedPreferences.
@@ -103,6 +115,21 @@ THEMES="a" ./scripts/build_tables.sh # um tema só
 
 O CI roda a auditoria dos GLBs, o frescor das previews e a separação dos estilos
 antes do Gradle.
+
+## Instalar no celular
+
+O APK é assinado e sai direto das releases. O Android vai avisar que o app "não
+foi verificado" ou que o **Play Protect** não o reconhece: isso é esperado para
+qualquer app instalado fora da Play Store e não é um diagnóstico de vírus. Toque
+em **Mais detalhes → Instalar assim mesmo**.
+
+- Download: `https://github.com/ldmaster/sinuca-bluetooth/releases/latest`
+- Sem nenhum diálogo: `./scripts/install_phone.sh` (usa `adb install -r`)
+- Certificado esperado (confira antes de instalar):
+  `SHA-256 f9f09a4c086a837207cb31f04c83d7cc72e8f5124a881d9ccca639b16fb87be3`
+
+Detalhes por fabricante, como desligar a análise da MIUI e por que o aviso
+volta, estão em [`docs/install.md`](docs/install.md).
 
 ## Requisitos
 

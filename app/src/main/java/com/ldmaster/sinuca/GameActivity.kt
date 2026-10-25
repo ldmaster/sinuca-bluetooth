@@ -11,8 +11,10 @@ import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.Toast
 import com.ldmaster.sinuca.game.AiLevel
+import com.ldmaster.sinuca.game.AiMemory
 import com.ldmaster.sinuca.game.AiPlayer
 import com.ldmaster.sinuca.game.GameWorld
+import com.ldmaster.sinuca.game.PrefsMemoryStore
 import com.ldmaster.sinuca.game.TableTexture
 import com.ldmaster.sinuca.game.TableTheme
 import com.ldmaster.sinuca.game.TextureQuality
@@ -20,6 +22,7 @@ import com.ldmaster.sinuca.net.NetMessage
 import com.ldmaster.sinuca.net.Session
 import com.ldmaster.sinuca.net.Wire
 import com.ldmaster.sinuca.render.GameRenderer
+import com.ldmaster.sinuca.ui.HallStats
 import com.ldmaster.sinuca.ui.HudState
 import com.ldmaster.sinuca.ui.HudView
 
@@ -39,6 +42,9 @@ class GameActivity : Activity() {
     private var started = true
     private var lastSent = ""
     private var closed = false
+    private var resultRecorded = false
+    private val hallStats by lazy { HallStats(this) }
+    private val aiMemory by lazy { AiMemory(PrefsMemoryStore(this)) }
 
     private val sync = object : Runnable {
         override fun run() {
@@ -168,7 +174,7 @@ class GameActivity : Activity() {
 
         if (ai) {
             started = true
-            aiPlayer = AiPlayer(world, 1, aiLevel) { shot ->
+            aiPlayer = AiPlayer(world, 1, aiLevel, aiMemory) { shot ->
                 surface.queueEvent {
                     world.shoot(shot.angle, shot.power, 0.0, 0.0)
                 }
@@ -217,6 +223,10 @@ class GameActivity : Activity() {
 
     private fun hudState(): HudState {
         val snapshot = world.snapshot()
+        if (ai && !resultRecorded && snapshot.winner >= 0) {
+            resultRecorded = true
+            if (snapshot.winner == 0) hallStats.recordWin(aiLevel) else hallStats.recordLoss()
+        }
         return HudState(
             turn = snapshot.turn,
             localPlayer = localPlayer,
@@ -225,7 +235,15 @@ class GameActivity : Activity() {
             potted1 = snapshot.potted1,
             winner = snapshot.winner,
             moving = snapshot.moving,
-            message = snapshot.message,
+            message = if (ai && snapshot.winner >= 0) {
+                if (snapshot.winner == 0) {
+                    "Você venceu a IA ${aiLevel.label.lowercase()}!"
+                } else {
+                    "A IA ${aiLevel.label.lowercase()} venceu."
+                }
+            } else {
+                snapshot.message
+            },
             started = started,
             canShoot = started && world.canShoot(localPlayer),
             cameraMode = renderer.cameraMode,

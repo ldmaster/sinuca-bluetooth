@@ -6,6 +6,7 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.app.Dialog
 import android.graphics.drawable.Drawable
+import android.graphics.drawable.GradientDrawable
 import android.widget.ImageView
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
@@ -27,12 +28,16 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import com.ldmaster.sinuca.game.AiLevel
+import com.ldmaster.sinuca.game.AiMemory
+import com.ldmaster.sinuca.game.PrefsMemoryStore
 import com.ldmaster.sinuca.game.TableTexture
 import com.ldmaster.sinuca.game.TableTheme
 import com.ldmaster.sinuca.game.TextureQuality
 import com.ldmaster.sinuca.net.BluetoothGame
 import com.ldmaster.sinuca.net.NetMessage
 import com.ldmaster.sinuca.net.Session
+import com.ldmaster.sinuca.ui.HallStats
+import kotlin.math.roundToInt
 
 class MainActivity : Activity() {
 
@@ -45,12 +50,23 @@ class MainActivity : Activity() {
 
     private lateinit var status: TextView
     private lateinit var devices: LinearLayout
-    private lateinit var themeButton: Button
-    private lateinit var textureButton: Button
-    private lateinit var qualityButton: Button
+    private lateinit var statsLine: TextView
+    private lateinit var badgesLine: TextView
+    private lateinit var statWins: TextView
+    private lateinit var statLosses: TextView
+    private lateinit var statStreak: TextView
+    private lateinit var aiModeSubtitle: TextView
+    private lateinit var aiDescription: TextView
+    private lateinit var levelChips: LinearLayout
+    private lateinit var themeValue: TextView
+    private lateinit var textureValue: TextView
+    private lateinit var qualityValue: TextView
     private var tableTheme = TableTheme.DEFAULT
     private var tableTexture = TableTexture.DEFAULT
     private var tableQuality = TextureQuality.DEFAULT
+    private var aiLevel = AiLevel.MEDIUM
+    private val hallStats by lazy { HallStats(this) }
+    private val aiMemory by lazy { AiMemory(PrefsMemoryStore(this)) }
     private val found = LinkedHashMap<String, BluetoothDevice>()
 
     private val menuListener = object : BluetoothGame.Listener {
@@ -109,6 +125,10 @@ class MainActivity : Activity() {
             getSharedPreferences(TextureQuality.PREFS, MODE_PRIVATE)
                 .getString(TextureQuality.KEY, null)
         )
+        aiLevel = AiLevel.entries.firstOrNull {
+            it.name == getSharedPreferences(TableTheme.PREFS, MODE_PRIVATE)
+                .getString(KEY_AI_LEVEL, null)
+        } ?: AiLevel.MEDIUM
         setContentView(buildUi())
         registerDiscovery()
         status.text = if (adapter == null) {
@@ -142,65 +162,262 @@ class MainActivity : Activity() {
 
     private fun buildUi(): View {
         val scroll = ScrollView(this).apply {
-            setBackgroundColor(Color.parseColor("#0A0F18"))
+            setBackgroundColor(Color.parseColor("#070B12"))
             isFillViewport = true
         }
         val column = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(24), dp(28), dp(24), dp(28))
+            setPadding(dp(20), dp(26), dp(20), dp(36))
         }
         scroll.addView(column, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
 
-        column.addView(text("SINUCA", 36f, "#F2F6FA", bold = true))
-        column.addView(text("Bluetooth · 2 jogadores", 16f, "#7FD1A6"))
-        column.addView(text("Bolas 1–7 para você, 9–15 para o adversário. A 8 decide.", 14f, "#9AA8B8").apply {
-            setPadding(0, dp(10), 0, dp(18))
+        column.addView(text("SINUCA", 40f, "#F2F6FA", bold = true))
+        column.addView(text("Mesa de 9 pés · física própria · 4 temas", 13f, "#7FD1A6").apply {
+            setPadding(0, dp(2), 0, dp(18))
         })
 
-        column.addView(button("Criar partida (host)", "#1F6F4A") { hostGame() })
-        column.addView(button("Entrar em partida", "#1B4F72") { joinGame() })
-        column.addView(button("Jogar contra IA", "#2C5F8A") { chooseAiLevel() })
-        column.addView(button("Treino local", "#3B3B4A") { practice() })
-        themeButton = button("Tema da mesa · ${tableTheme.label}", "#243A52") {
-            chooseTheme()
-        }
-        column.addView(themeButton)
-        textureButton = button("Textura 4K · ${tableTexture.label}", "#2B3D2E") {
-            chooseTexture()
-        }
-        column.addView(textureButton)
-        qualityButton = button("Qualidade 4K · ${tableQuality.label}", "#3A3226") {
-            chooseQuality()
-        }
-        column.addView(qualityButton)
+        column.addView(statsCard())
 
-        status = text("Pronto.", 14f, "#C7D2DE").apply {
-            setPadding(0, dp(20), 0, dp(12))
-        }
-        column.addView(status)
+        column.addView(section("MODOS"))
+        val modes = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val practiceCard = modeCard(
+            "SOLO",
+            "Treino livre",
+            "Sem pressa e sem placar",
+            "#2F6F8F"
+        ) { practice() }
+        val aiCard = modeCard(
+            "1 vs IA",
+            "Contra a IA",
+            "",
+            "#8B5CF6"
+        ) { aiGame() }
+        aiModeSubtitle = aiCard.getChildAt(2) as TextView
+        modes.addView(
+            practiceCard,
+            LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f).apply { marginEnd = dp(10) }
+        )
+        modes.addView(aiCard, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+        column.addView(modes)
 
-        column.addView(text("DISPOSITIVOS", 12f, "#66758A", bold = true).apply {
-            letterSpacing = 0.12f
-        })
+        column.addView(section("DIFICULDADE DA IA"))
+        column.addView(levelChipRow())
+        aiDescription = text("", 12f, "#8FA0B4").apply { setPadding(0, dp(10), 0, 0) }
+        column.addView(aiDescription)
+
+        column.addView(section("MULTIPLAYER"))
+        column.addView(multiplayerCard())
+
+        column.addView(section("AJUSTES DA MESA"))
+        column.addView(settingsCard())
+
         column.addView(
-            text(
-                "O host precisa aceitar ficar visível. Se a conexão falhar, pareie os aparelhos no Android e tente novamente.",
-                12f,
-                "#66758A"
-            ).apply { setPadding(0, dp(6), 0, dp(6)) }
+            text("Versão ${versionName()} · jogador 1 é você, jogador 2 é o adversário", 10f, "#4E5C6E")
+                .apply { setPadding(0, dp(26), 0, 0) }
         )
 
-        devices = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        column.addView(devices, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-
-        column.addView(
-            text(
-                "Sem Bluetooth? O treino local usa a mesma física e as mesmas regras no mesmo aparelho.",
-                12f,
-                "#66758A"
-            ).apply { setPadding(0, dp(20), 0, 0) }
-        )
+        refreshLevelUi()
+        refreshStats()
+        refreshSettings()
         return scroll
+    }
+
+    private fun statsCard(): View {
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = rounded("#101825", "#1E2C3E")
+            setPadding(dp(16), dp(14), dp(16), dp(14))
+        }
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val wins = statCell("VITÓRIAS")
+        val losses = statCell("DERROTAS")
+        val streak = statCell("SEQUÊNCIA")
+        statWins = wins.second
+        statLosses = losses.second
+        statStreak = streak.second
+        row.addView(wins.first, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+        row.addView(losses.first, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+        row.addView(streak.first, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+        card.addView(row)
+        badgesLine = text("", 11f, "#8FA0B4").apply { setPadding(0, dp(10), 0, 0) }
+        card.addView(badgesLine)
+        statsLine = text("", 11f, "#66758A")
+        card.addView(statsLine)
+        return card
+    }
+
+    private fun statCell(label: String): Pair<View, TextView> {
+        val cell = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val value = text("0", 26f, "#F2F6FA", bold = true)
+        cell.addView(value)
+        cell.addView(text(label, 9f, "#66758A").apply { letterSpacing = 0.12f })
+        return cell to value
+    }
+
+    private fun modeCard(
+        kicker: String,
+        title: String,
+        subtitle: String,
+        accent: String,
+        action: () -> Unit
+    ): LinearLayout {
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = rounded("#121A26", accent)
+            setPadding(dp(16), dp(14), dp(16), dp(16))
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { action() }
+        }
+        card.addView(text(kicker, 9f, accent, bold = true).apply { letterSpacing = 0.16f })
+        card.addView(text(title, 20f, "#F2F6FA", bold = true))
+        card.addView(text(subtitle, 11f, "#8FA0B4"))
+        return card
+    }
+
+    private fun levelChipRow(): View {
+        levelChips = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        for (level in AiLevel.entries) {
+            val chip = text(level.label, 12f, "#8FA0B4", bold = true).apply {
+                gravity = Gravity.CENTER
+                setPadding(dp(8), dp(9), dp(8), dp(9))
+                isClickable = true
+                setOnClickListener { selectAiLevel(level) }
+            }
+            levelChips.addView(
+                chip,
+                LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f).apply { marginEnd = dp(6) }
+            )
+        }
+        return levelChips
+    }
+
+    private fun multiplayerCard(): View {
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = rounded("#101825", "#1E2C3E")
+            setPadding(dp(16), dp(14), dp(16), dp(14))
+        }
+        card.addView(
+            text(
+                "Dois celulares com Bluetooth pareado. O host fica visível e o convidado entra.",
+                11f,
+                "#8FA0B4"
+            )
+        )
+        card.addView(button("Criar partida (host)", "#1F6F4A") { hostGame() })
+        card.addView(button("Entrar em partida", "#1B4F72") { joinGame() })
+        status = text("Pronto.", 12f, "#C7D2DE").apply {
+            setPadding(0, dp(12), 0, dp(4))
+        }
+        card.addView(status)
+        devices = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        card.addView(devices, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        return card
+    }
+
+    private fun settingsCard(): View {
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = rounded("#101825", "#1E2C3E")
+            setPadding(dp(16), dp(4), dp(16), dp(4))
+        }
+        themeValue = settingsRow(card, "TEMA") { chooseTheme() }
+        textureValue = settingsRow(card, "TEXTURA") { chooseTexture() }
+        qualityValue = settingsRow(card, "QUALIDADE") { chooseQuality() }
+        return card
+    }
+
+    private fun settingsRow(card: LinearLayout, label: String, action: () -> Unit): TextView {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(12), 0, dp(12))
+            isClickable = true
+            setOnClickListener { action() }
+        }
+        val column = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        column.addView(text(label, 9f, "#66758A", bold = true).apply { letterSpacing = 0.14f })
+        val value = text("", 14f, "#E6F2F6FA")
+        column.addView(value)
+        row.addView(column, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+        row.addView(text("›", 22f, "#4E5C6E"))
+        card.addView(row, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        return value
+    }
+
+    private fun section(title: String): View =
+        text(title, 10f, "#6C7A8C", bold = true).apply {
+            letterSpacing = 0.16f
+            setPadding(0, dp(24), 0, dp(10))
+        }
+
+    private fun rounded(fill: String, stroke: String, radius: Int = 18): GradientDrawable =
+        GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = dp(radius).toFloat()
+            setColor(Color.parseColor(fill))
+            setStroke(dp(1), Color.parseColor(stroke))
+        }
+
+    private fun selectAiLevel(level: AiLevel) {
+        aiLevel = level
+        getSharedPreferences(TableTheme.PREFS, MODE_PRIVATE)
+            .edit()
+            .putString(KEY_AI_LEVEL, level.name)
+            .apply()
+        refreshLevelUi()
+    }
+
+    private fun refreshLevelUi() {
+        for (index in 0 until levelChips.childCount) {
+            val chip = levelChips.getChildAt(index) as TextView
+            val level = AiLevel.entries[index]
+            val selected = level == aiLevel
+            chip.background = rounded(
+                if (selected) "#8B5CF6" else "#141C28",
+                if (selected) "#8B5CF6" else "#233146",
+                radius = 12
+            )
+            chip.setTextColor(Color.parseColor(if (selected) "#FFFFFF" else "#8FA0B4"))
+            chip.setText(if (hallStats.beaten(level)) "${level.label} ·" else level.label)
+        }
+        aiModeSubtitle.text = "Jogador 2: IA · ${aiLevel.label}"
+        val attempts = aiMemory.attempts(aiLevel)
+        val learning = when {
+            aiLevel.learningWeight <= 0.0 -> "Não acumula aprendizado neste nível."
+            attempts == 0 -> "Ainda não aprendeu nenhuma tacada neste nível."
+            else -> "Aprendeu com $attempts tacadas · " +
+                "${(aiMemory.potRate(aiLevel) * 100).roundToInt()}% de encaixe"
+        }
+        aiDescription.text = "${aiLevel.tagline}\n$learning"
+    }
+
+    private fun refreshStats() {
+        statWins.text = hallStats.wins.toString()
+        statLosses.text = hallStats.losses.toString()
+        statStreak.text = hallStats.streak.toString()
+        badgesLine.text = AiLevel.entries.joinToString("    ") { level ->
+            val mark = if (hallStats.beaten(level)) "●" else "○"
+            "$mark ${level.label}"
+        }
+        statsLine.text = if (hallStats.wins + hallStats.losses == 0) {
+            "Jogue a primeira partida contra a IA para começar o placar."
+        } else {
+            "Melhor sequência: ${hallStats.bestStreak}"
+        }
+    }
+
+    private fun refreshSettings() {
+        themeValue.text = tableTheme.label
+        textureValue.text = tableTexture.label
+        qualityValue.text = tableQuality.label
+    }
+
+    private fun versionName(): String = try {
+        packageManager.getPackageInfo(packageName, 0).versionName ?: "?"
+    } catch (_: Exception) {
+        "?"
     }
 
     private fun hostGame() {
@@ -257,7 +474,7 @@ class MainActivity : Activity() {
                     .edit()
                     .putString(TableTheme.KEY, tableTheme.key)
                     .apply()
-                themeButton.text = "Tema da mesa · ${tableTheme.label}"
+                themeValue.text = tableTheme.label
                 dialog.dismiss()
             }
             .show()
@@ -318,8 +535,7 @@ class MainActivity : Activity() {
             .edit()
             .putString(TableTexture.KEY, texture.key)
             .apply()
-        themeButton.text = "Tema da mesa · ${theme.label}"
-        textureButton.text = "Textura 4K · ${texture.label}"
+        refreshSettings()
     }
 
     private fun chooseQuality() {
@@ -333,23 +549,13 @@ class MainActivity : Activity() {
                     .edit()
                     .putString(TextureQuality.KEY, tableQuality.key)
                     .apply()
-                qualityButton.text = "Qualidade 4K · ${tableQuality.label}"
+                qualityValue.text = tableQuality.label
                 dialog.dismiss()
             }
             .show()
     }
 
-    private fun chooseAiLevel() {
-        val levels = AiLevel.entries.toTypedArray()
-        AlertDialog.Builder(this)
-            .setTitle("Dificuldade da IA")
-            .setItems(levels.map { it.label }.toTypedArray()) { _, which ->
-                aiGame(levels[which])
-            }
-            .show()
-    }
-
-    private fun aiGame(level: AiLevel) {
+    private fun aiGame() {
         service?.close()
         service = null
         Session.service = null
@@ -359,7 +565,7 @@ class MainActivity : Activity() {
             Intent(this, GameActivity::class.java)
                 .putExtra("player", 0)
                 .putExtra("ai", true)
-                .putExtra("aiLevel", level.ordinal)
+                .putExtra("aiLevel", aiLevel.ordinal)
         )
     }
 
@@ -533,6 +739,7 @@ class MainActivity : Activity() {
         private const val REQUEST_PERMISSIONS = 41
         private const val REQUEST_ENABLE = 42
         private const val REQUEST_DISCOVERABLE = 43
+        private const val KEY_AI_LEVEL = "ai_level"
         private const val MATCH_PARENT = LinearLayout.LayoutParams.MATCH_PARENT
         private const val WRAP_CONTENT = LinearLayout.LayoutParams.WRAP_CONTENT
     }

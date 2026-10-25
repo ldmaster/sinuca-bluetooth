@@ -6,18 +6,83 @@ import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.hypot
 
-data class AiShot(val angle: Double, val power: Double)
+data class AiShot(
+    val angle: Double,
+    val power: Double,
+    val features: ShotFeatures? = null,
+    val targetNumber: Int = -1
+)
 
 enum class AiLevel(
     val label: String,
+    val tagline: String,
     val maxCandidates: Int,
     val aimNoiseDegrees: Double,
     val mistakeChance: Double,
-    val powerFactor: Double
+    val powerFactor: Double,
+    /** Minimum time the player sees "IA PENSANDO" before the shot is taken. */
+    val thinkTimeMillis: Long,
+    /** How long the search may run inside that window. */
+    val searchBudgetMillis: Long,
+    /** Local refinement rounds around the best few candidates. */
+    val refineRounds: Int,
+    /** Extra score per object ball potted beyond the first in the same shot. */
+    val multiPotBonus: Double,
+    /** How much the per-level learned pot rate influences the search. */
+    val learningWeight: Double
 ) {
-    EASY("Fácil", 5, 3.0, 0.35, 0.95),
-    MEDIUM("Médio", 14, 0.8, 0.12, 0.98),
-    HARD("Difícil", 36, 0.0, 0.0, 1.0)
+    EASY(
+        "Fácil",
+        "Erra bastante. Boa para aprender a mesa.",
+        maxCandidates = 5,
+        aimNoiseDegrees = 3.0,
+        mistakeChance = 0.35,
+        powerFactor = 0.95,
+        thinkTimeMillis = 450,
+        searchBudgetMillis = 300,
+        refineRounds = 0,
+        multiPotBonus = 0.0,
+        learningWeight = 0.0
+    ),
+    MEDIUM(
+        "Médio",
+        "Jogo seguro, encaçapa o óbvio e erra às vezes.",
+        maxCandidates = 14,
+        aimNoiseDegrees = 0.8,
+        mistakeChance = 0.12,
+        powerFactor = 0.98,
+        thinkTimeMillis = 1100,
+        searchBudgetMillis = 800,
+        refineRounds = 1,
+        multiPotBonus = 60.0,
+        learningWeight = 0.0
+    ),
+    HARD(
+        "Difícil",
+        "Quase não erra, ajusta força e joga posição.",
+        maxCandidates = 40,
+        aimNoiseDegrees = 0.0,
+        mistakeChance = 0.0,
+        powerFactor = 1.0,
+        thinkTimeMillis = 2800,
+        searchBudgetMillis = 2400,
+        refineRounds = 2,
+        multiPotBonus = 140.0,
+        learningWeight = 1.0
+    ),
+    EXTREME(
+        "Extremo",
+        "Procura encaçapar mais de uma bola na mesma tacada e não perdoa.",
+        maxCandidates = 110,
+        aimNoiseDegrees = 0.0,
+        mistakeChance = 0.0,
+        powerFactor = 1.0,
+        thinkTimeMillis = 5400,
+        searchBudgetMillis = 4800,
+        refineRounds = 3,
+        multiPotBonus = 320.0,
+        learningWeight = 1.6
+    )
 }
 
 /**
@@ -29,6 +94,7 @@ class AiPlayer(
     private val world: GameWorld,
     private val player: Int,
     private val level: AiLevel,
+    private val memory: AiMemory? = null,
     private val onShot: (AiShot) -> Unit
 ) {
 
@@ -36,7 +102,7 @@ class AiPlayer(
     var thinking: Boolean = false
         private set
 
-    private val planner = AiPlanner(level)
+    private val planner = AiPlanner(level, memory = memory)
     private val executor = Executors.newSingleThreadExecutor { runnable ->
         Thread(runnable, "sinuca-ai").apply { isDaemon = true }
     }
@@ -44,26 +110,85 @@ class AiPlayer(
     private var released = false
     @Volatile
     private var lastShotAt = 0L
+    @Volatile
+    private var pending: PendingShot? = null
 
     fun tick() {
-        if (released || thinking) return
-        if (System.nanoTime() - lastShotAt < SHOT_COOLDOWN_NS) return
+        if (released) return
         val snapshot = synchronized(world) { world.snapshot() }
+        resolvePending(snapshot)
+        if (thinking) return
+        if (System.nanoTime() - lastShotAt < SHOT_COOLDOWN_NS) return
         if (snapshot.winner >= 0 || snapshot.moving || snapshot.turn != player) return
 
+        val ownBefore = countOwn(snapshot)
         thinking = true
         executor.execute {
+            val startedAt = System.nanoTime()
             val shot = try {
-                planner.plan(snapshot, player)
+                planner.plan(snapshot, player, level.searchBudgetMillis)
             } catch (_: Throwable) {
                 null
             }
+            if (!released) {
+                // Hard levels should look like they are studying the table: keep
+                // the "IA PENSANDO" badge up for the level's think time even when
+                // the search finds its shot sooner.
+                val elapsed = (System.nanoTime() - startedAt) / 1_000_000
+                val remaining = level.thinkTimeMillis - elapsed
+                if (remaining > 0 && !released) {
+                    try {
+                        Thread.sleep(remaining)
+                    } catch (_: InterruptedException) {
+                        Thread.currentThread().interrupt()
+                    }
+                }
+            }
             if (!released && shot != null) {
                 lastShotAt = System.nanoTime()
+                shot.features?.let {
+                    pending = PendingShot(it, ownBefore, shot.targetNumber)
+                }
                 onShot(shot)
             }
             thinking = false
         }
+    }
+
+    /**
+     * Close the loop on the last shot: once the balls settle, compare how many
+     * object balls actually dropped with what the shot family predicted and let
+     * the memory learn from it.
+     */
+    private fun resolvePending(snapshot: WorldSnapshot) {
+        val shot = pending ?: return
+        if (snapshot.moving) {
+            shot.seenMoving = true
+            return
+        }
+        if (!shot.seenMoving && shot.ticks++ < SETTLE_TICKS) return
+        val ownAfter = countOwn(snapshot)
+        // The eight is nobody's group, so also count the intended target ball.
+        val targetPotted = snapshot.balls
+            .firstOrNull { it.number == shot.targetNumber }
+            ?.let { !it.active || it.falling } ?: false
+        val potted = maxOf(
+            (shot.ownBefore - ownAfter).coerceAtLeast(0),
+            if (targetPotted) 1 else 0
+        )
+        memory?.record(level, shot.features, potted)
+        pending = null
+    }
+
+    private fun countOwn(snapshot: WorldSnapshot): Int = snapshot.balls.count {
+        it.active && !it.falling && groupOf(it.number) == player
+    }
+
+    private fun groupOf(number: Int): Int = when (number) {
+        0, 8 -> -1
+        in 1..7 -> 0
+        in 9..15 -> 1
+        else -> -1
     }
 
     fun release() {
@@ -72,22 +197,34 @@ class AiPlayer(
         executor.shutdownNow()
     }
 
+    private class PendingShot(
+        val features: ShotFeatures,
+        val ownBefore: Int,
+        val targetNumber: Int
+    ) {
+        var seenMoving = false
+        var ticks = 0
+    }
+
     private companion object {
         const val SHOT_COOLDOWN_NS = 350_000_000L
+        const val SETTLE_TICKS = 60
     }
 }
 
 class AiPlanner(
     private val level: AiLevel,
-    private val random: Random = Random()
+    private val random: Random = Random(),
+    private val memory: AiMemory? = null
 ) {
 
     private val simulation = GameWorld()
 
-    fun plan(snapshot: WorldSnapshot, player: Int): AiShot {
+    fun plan(snapshot: WorldSnapshot, player: Int, budgetMillis: Long = 900L): AiShot {
         simulation.applySnapshot(snapshot)
         val cue = simulation.balls[0]
         if (!cue.active) return AiShot(0.0, 0.3)
+        val deadline = System.nanoTime() + budgetMillis * 1_000_000
 
         val ownGroup = if (player == 0) 1..7 else 9..15
         val groupActive = simulation.balls.any {
@@ -119,6 +256,7 @@ class AiPlanner(
         candidates.sortBy { it.heuristic }
         val scored = ArrayList<Scored>(level.maxCandidates)
         for (candidate in candidates.take(level.maxCandidates)) {
+            if (System.nanoTime() > deadline) break
             simulation.applySnapshot(snapshot)
             if (!simulation.shoot(candidate.angle, candidate.power)) continue
             scored.add(Scored(candidate, simulateAndScore(candidate, player)))
@@ -127,22 +265,8 @@ class AiPlanner(
         scored.sortByDescending { it.score }
 
         var best = scored.first()
-        if (level == AiLevel.HARD) {
-            val angles = doubleArrayOf(-1.2, -0.6, 0.0, 0.6, 1.2)
-            val powers = doubleArrayOf(-0.08, 0.0, 0.08)
-            for (seed in scored.take(4)) {
-                for (da in angles) {
-                    for (dp in powers) {
-                        val angle = seed.candidate.angle + Math.toRadians(da)
-                        val power = (seed.candidate.power + dp).coerceIn(0.20, 0.95)
-                        simulation.applySnapshot(snapshot)
-                        if (!simulation.shoot(angle, power)) continue
-                        val candidate = seed.candidate.copy(angle = angle, power = power)
-                        val score = simulateAndScore(candidate, player)
-                        if (score > best.score) best = Scored(candidate, score)
-                    }
-                }
-            }
+        if (level.refineRounds > 0) {
+            best = refine(snapshot, player, scored, best, deadline)
         }
 
         val pick = if (best === scored.first() && scored.size > 1 &&
@@ -155,10 +279,56 @@ class AiPlanner(
         }
         val noise = (random.nextDouble() * 2.0 - 1.0) *
             Math.toRadians(level.aimNoiseDegrees)
+        val appliedPower = (pick.candidate.power * level.powerFactor).coerceIn(0.20, 0.95)
         return AiShot(
-            pick.candidate.angle + noise,
-            (pick.candidate.power * level.powerFactor).coerceIn(0.20, 0.95)
+            angle = pick.candidate.angle + noise,
+            power = appliedPower,
+            features = ShotFeatures(
+                cutCos = pick.candidate.cosCut,
+                distance = pick.candidate.distance,
+                power = appliedPower
+            ),
+            targetNumber = pick.candidate.targetNumber
         )
+    }
+
+    /**
+     * Local search around the best shots, with shrinking steps. Each round is
+     * cheaper than the previous one, so the budget buys a coarse sweep first and
+     * precision only where it matters.
+     */
+    private fun refine(
+        snapshot: WorldSnapshot,
+        player: Int,
+        scored: List<Scored>,
+        initial: Scored,
+        deadline: Long
+    ): Scored {
+        var best = initial
+        val angleSteps = doubleArrayOf(1.2, 0.5, 0.2)
+        val powerSteps = doubleArrayOf(0.08, 0.04, 0.02)
+        val seeds = scored.sortedByDescending { it.score }.take(6)
+        for (round in 0 until level.refineRounds) {
+            val angleStep = angleSteps[minOf(round, angleSteps.size - 1)]
+            val powerStep = powerSteps[minOf(round, powerSteps.size - 1)]
+            for (seed in seeds) {
+                for (angleSign in doubleArrayOf(-1.0, 1.0)) {
+                    for (powerSign in doubleArrayOf(-1.0, 0.0, 1.0)) {
+                        if (System.nanoTime() > deadline) return best
+                        val angle = seed.candidate.angle +
+                            Math.toRadians(angleStep * angleSign)
+                        val power = (seed.candidate.power + powerStep * powerSign)
+                            .coerceIn(0.20, 0.95)
+                        simulation.applySnapshot(snapshot)
+                        if (!simulation.shoot(angle, power)) continue
+                        val candidate = seed.candidate.copy(angle = angle, power = power)
+                        val score = simulateAndScore(candidate, player)
+                        if (score > best.score) best = Scored(candidate, score)
+                    }
+                }
+            }
+        }
+        return best
     }
 
     private fun addCandidates(
@@ -207,6 +377,7 @@ class AiPlanner(
                     angle = atan2(ghostZ - cue.z, ghostX - cue.x),
                     power = power,
                     cosCut = cosCut,
+                    distance = cueToTarget,
                     heuristic = heuristic + abs(power - basePower) * 2.0
                 )
             )
@@ -248,10 +419,15 @@ class AiPlanner(
 
         val ownAfter = countGroup(player)
         val opponentAfter = countGroup(1 - player)
+        val potted = ownBefore - ownAfter
         var score = 0.0
         if (scratched) score -= 4000.0
         if (!target.active) score += 900.0
-        score += (ownBefore - ownAfter) * 250.0
+        score += potted * 250.0
+        if (potted > 1) {
+            // Extreme play prefers a shot that drops two balls over two safe ones.
+            score += (potted - 1) * level.multiPotBonus
+        }
         score -= (opponentBefore - opponentAfter) * 220.0
         if (simulation.turn == player) score += 350.0
         if (cue.active && !scratched) {
@@ -262,6 +438,11 @@ class AiPlanner(
             score += rail.coerceIn(0.0, 0.30) * 800.0
         }
         score += (1.0 - candidate.cosCut) * 80.0
+        if (memory != null && level.learningWeight > 0.0) {
+            val features = ShotFeatures(candidate.cosCut, candidate.distance, candidate.power)
+            val learned = memory.expectedPots(level, features)
+            score += (learned - ShotFeatures.PRIOR) * level.learningWeight * 600.0
+        }
         return score
     }
 
@@ -300,6 +481,7 @@ class AiPlanner(
         val angle: Double,
         val power: Double,
         val cosCut: Double,
+        val distance: Double,
         val heuristic: Double
     )
 
