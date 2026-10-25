@@ -223,10 +223,7 @@ class GameActivity : Activity() {
 
     private fun hudState(): HudState {
         val snapshot = world.snapshot()
-        if (ai && !resultRecorded && snapshot.winner >= 0) {
-            resultRecorded = true
-            if (snapshot.winner == 0) hallStats.recordWin(aiLevel) else hallStats.recordLoss()
-        }
+        recordResult()
         return HudState(
             turn = snapshot.turn,
             localPlayer = localPlayer,
@@ -253,6 +250,19 @@ class GameActivity : Activity() {
         )
     }
 
+    /** Records the AI result once, from whichever lifecycle point sees the end. */
+    private fun recordResult() {
+        if (!ai || resultRecorded) return
+        val snapshot = world.snapshot()
+        if (snapshot.winner < 0) return
+        resultRecorded = true
+        if (snapshot.winner == 0) {
+            hallStats.recordWin(aiLevel)
+        } else {
+            hallStats.recordLoss()
+        }
+    }
+
     private fun closeAndFinish() {
         if (!closed) {
             closed = true
@@ -275,11 +285,13 @@ class GameActivity : Activity() {
 
     override fun onPause() {
         super.onPause()
+        recordResult()
         surface.onPause()
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        recordResult()
         renderer.release()
         aiPlayer?.release()
         handler.removeCallbacks(sync)

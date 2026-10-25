@@ -122,6 +122,38 @@ class AiMemory(private val store: MemoryStore) {
         save()
     }
 
+    /** Reload from storage; the hall calls this after a game. */
+    fun reload() {
+        cells.clear()
+        load()
+    }
+
+    // --- safety channel -----------------------------------------------------
+    // A second counter per shot family tracks defensive shots: the outcome is
+    // "the opponent did not pot on their next visit".
+
+    fun recordSafety(level: AiLevel, features: ShotFeatures, success: Boolean) {
+        if (level.learningWeight <= 0.0) return
+        val key = safetyKey(level, features)
+        val cell = cells.getOrPut(key) { IntArray(2) }
+        cell[0] += 1
+        if (success) cell[1] += 1
+        save()
+    }
+
+    /** Smoothed success rate of a safety family (0..1, 0.5 with no data). */
+    fun expectedSafety(level: AiLevel, features: ShotFeatures): Double {
+        val cell = cells[safetyKey(level, features)] ?: return 0.5
+        return (cell[1] + 1.0) / (cell[0] + 2.0)
+    }
+
+    fun safetyAttempts(level: AiLevel): Int = cells.entries
+        .filter { it.key.startsWith("${level.name}:S:") }
+        .sumOf { it.value[0] }
+
+    private fun safetyKey(level: AiLevel, features: ShotFeatures): String =
+        "${level.name}:S:${features.key}"
+
     private fun key(level: AiLevel, features: ShotFeatures): String =
         "${level.name}:${features.key}"
 

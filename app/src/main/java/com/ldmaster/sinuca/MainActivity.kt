@@ -16,7 +16,9 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.Typeface
 import android.os.Build
 import android.os.Bundle
@@ -41,7 +43,9 @@ import com.ldmaster.sinuca.net.BluetoothGame
 import com.ldmaster.sinuca.net.NetMessage
 import com.ldmaster.sinuca.net.Session
 import com.ldmaster.sinuca.ui.HallStats
+import kotlin.math.cos
 import kotlin.math.roundToInt
+import kotlin.math.sin
 
 class MainActivity : Activity() {
 
@@ -74,6 +78,7 @@ class MainActivity : Activity() {
     private var tableTexture = TableTexture.DEFAULT
     private var tableQuality = TextureQuality.DEFAULT
     private var aiLevel = AiLevel.MEDIUM
+    private var accentColor = "#C9A227"
     private val hallStats by lazy { HallStats(this) }
     private val aiMemory by lazy { AiMemory(PrefsMemoryStore(this)) }
     private val found = LinkedHashMap<String, BluetoothDevice>()
@@ -150,6 +155,11 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        if (::statWins.isInitialized) {
+            aiMemory.reload()
+            refreshStats()
+            refreshLevelUi()
+        }
         if (Session.service == null && service != null) {
             service?.close()
             service = null
@@ -170,6 +180,7 @@ class MainActivity : Activity() {
     }
 
     private fun buildUi(): View {
+        accentColor = accentFor(tableTheme)
         val root = FrameLayout(this)
 
         backgroundImage = ImageView(this).apply {
@@ -206,7 +217,7 @@ class MainActivity : Activity() {
             text("arraste para o lado", 10f, "#4E5C6E")
                 .apply { setPadding(0, dp(2), 0, dp(8)) }
         )
-        column.addView(buildCarousel(), LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f))
+        column.addView(buildCarousel(), LinearLayout.LayoutParams(MATCH_PARENT, dp(248)))
 
         dotsRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -214,7 +225,11 @@ class MainActivity : Activity() {
         }
         column.addView(
             dotsRow,
-            LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(6) }
+            LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(8) }
+        )
+        column.addView(View(this), LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f))
+        column.addView(
+            text("Jogador 1 é você · jogador 2 é o adversário", 9f, "#4E5C6E")
         )
         buildDots()
         setupCarousel()
@@ -240,10 +255,54 @@ class MainActivity : Activity() {
         row.addView(brand, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
         row.addView(statsStrip())
         row.addView(
-            settingsButton(),
-            LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginStart = dp(12) }
+            gearButton(),
+            LinearLayout.LayoutParams(dp(42), dp(42)).apply { marginStart = dp(12) }
         )
         return row
+    }
+
+    private fun gearButton(): View {
+        val holder = FrameLayout(this).apply {
+            background = rounded("#CC1B2534", "#2A3A50", radius = 21)
+            isClickable = true
+            setOnClickListener { openSettings() }
+        }
+        holder.addView(GearView(this), FrameLayout.LayoutParams(dp(42), dp(42)))
+        return holder
+    }
+
+    /** Minimal gear drawn with a circle and eight teeth; no icon dependency. */
+    private inner class GearView(context: Context) : View(context) {
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = dp(2).toFloat()
+            strokeCap = Paint.Cap.ROUND
+            color = Color.parseColor("#E6F2F6FA")
+        }
+
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+            val cx = width / 2f
+            val cy = height / 2f
+            val size = minOf(width, height)
+            val body = size * 0.17f
+            val toothOuter = size * 0.27f
+            val hub = body * 0.42f
+            canvas.drawCircle(cx, cy, body, paint)
+            canvas.drawCircle(cx, cy, hub, paint)
+            for (tooth in 0 until 8) {
+                val angle = tooth * Math.PI / 4.0
+                val dx = cos(angle).toFloat()
+                val dy = sin(angle).toFloat()
+                canvas.drawLine(
+                    cx + dx * body * 0.92f,
+                    cy + dy * body * 0.92f,
+                    cx + dx * toothOuter,
+                    cy + dy * toothOuter,
+                    paint
+                )
+            }
+        }
     }
 
     private fun statsStrip(): View {
@@ -285,14 +344,6 @@ class MainActivity : Activity() {
         return value
     }
 
-    private fun settingsButton(): View = text("AJUSTES ›", 11f, "#E6F2F6FA", bold = true).apply {
-        gravity = Gravity.CENTER
-        setPadding(dp(14), dp(12), dp(14), dp(12))
-        background = rounded("#CC1B2534", "#2A3A50", radius = 14)
-        isClickable = true
-        setOnClickListener { openSettings() }
-    }
-
     private fun buildCarousel(): View {
         carousel = HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false
@@ -305,7 +356,11 @@ class MainActivity : Activity() {
             carouselRow,
             ViewGroup.LayoutParams(WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT)
         )
-        val cardWidth = (resources.displayMetrics.widthPixels * 0.40f).toInt()
+        val screen = resources.displayMetrics.widthPixels
+        val cardWidth = (screen * 0.37f).toInt()
+        // Trailing room so the last card can scroll all the way to the left and
+        // the snap can actually centre it.
+        carousel.setPadding(0, 0, (screen * 0.63f).toInt(), 0)
         addModeCard(treinoCard(), cardWidth)
         addModeCard(aiCard(), cardWidth)
         addModeCard(multiplayerCard(), cardWidth)
@@ -402,11 +457,18 @@ class MainActivity : Activity() {
         }
         for (index in modeDots.indices) {
             modeDots[index].background = rounded(
-                if (index == centered) "#8B5CF6" else "#2A3A50",
-                if (index == centered) "#8B5CF6" else "#2A3A50",
+                if (index == centered) accentColor else "#2A3A50",
+                if (index == centered) accentColor else "#2A3A50",
                 radius = 4
             )
         }
+    }
+
+    private fun accentFor(theme: TableTheme): String = when (theme) {
+        TableTheme.HERITAGE -> "#C9A227"
+        TableTheme.ARENA -> "#38BDF8"
+        TableTheme.FOUNDRY -> "#F97316"
+        TableTheme.NEO -> "#60A5FA"
     }
 
     private fun cardShell(kicker: String, title: String, accent: String): LinearLayout {
@@ -427,19 +489,19 @@ class MainActivity : Activity() {
                 .apply { setPadding(0, dp(6), 0, dp(12)) }
         )
         card.addView(View(this), LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f))
-        card.addView(button("JOGAR", "#2F6F8F") { practice() })
+        card.addView(cardButton("JOGAR", "#2F6F8F") { practice() })
         return card
     }
 
     private fun aiCard(): LinearLayout {
-        val card = cardShell("1 VS IA", "Contra a IA", "#8B5CF6")
+        val card = cardShell("1 VS IA", "Contra a IA", accentColor)
         aiModeSubtitle = text("", 12f, "#C7B6F5").apply { setPadding(0, dp(4), 0, dp(10)) }
         card.addView(aiModeSubtitle)
         card.addView(levelChipRow())
         aiDescription = text("", 11f, "#8FA0B4").apply { setPadding(0, dp(10), 0, dp(8)) }
         card.addView(aiDescription)
         card.addView(View(this), LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f))
-        card.addView(button("JOGAR", "#8B5CF6") { aiGame() })
+        card.addView(cardButton("JOGAR", accentColor) { aiGame() })
         return card
     }
 
@@ -469,8 +531,8 @@ class MainActivity : Activity() {
                 "#9AA8B8"
             ).apply { setPadding(0, dp(6), 0, dp(6)) }
         )
-        card.addView(button("Criar partida (host)", "#1F6F4A") { hostGame() })
-        card.addView(button("Entrar em partida", "#1B4F72") { joinGame() })
+        card.addView(cardButton("Criar partida (host)", "#1F6F4A") { hostGame() })
+        card.addView(cardButton("Entrar em partida", "#1B4F72") { joinGame() })
         status = text("Pronto.", 12f, "#C7D2DE").apply {
             setPadding(0, dp(10), 0, dp(4))
         }
@@ -505,8 +567,8 @@ class MainActivity : Activity() {
             val level = AiLevel.entries[index]
             val selected = level == aiLevel
             chip.background = rounded(
-                if (selected) "#8B5CF6" else "#141C28",
-                if (selected) "#8B5CF6" else "#233146",
+                if (selected) accentColor else "#141C28",
+                if (selected) accentColor else "#233146",
                 radius = 12
             )
             chip.setTextColor(Color.parseColor(if (selected) "#FFFFFF" else "#8FA0B4"))
@@ -618,12 +680,7 @@ class MainActivity : Activity() {
                     selected = theme == tableTheme,
                     thumbnail = previewPath(theme, tableTexture)
                 ) {
-                    tableTheme = theme
-                    getSharedPreferences(TableTheme.PREFS, MODE_PRIVATE)
-                        .edit()
-                        .putString(TableTheme.KEY, theme.key)
-                        .apply()
-                    refreshSettings()
+                    selectLook(theme, tableTexture)
                     dialog.dismiss()
                 },
                 LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
@@ -653,7 +710,7 @@ class MainActivity : Activity() {
                     orientation = LinearLayout.VERTICAL
                     background = rounded(
                         if (selected) "#1B2436" else "#0F1724",
-                        if (selected) "#8B5CF6" else "#1E2C3E",
+                        if (selected) accentColor else "#1E2C3E",
                         radius = 14
                     )
                     setPadding(dp(4), dp(4), dp(4), dp(6))
@@ -692,6 +749,7 @@ class MainActivity : Activity() {
     }
 
     private fun selectLook(theme: TableTheme, texture: TableTexture) {
+        val themeChanged = theme != tableTheme
         tableTheme = theme
         tableTexture = texture
         getSharedPreferences(TableTheme.PREFS, MODE_PRIVATE)
@@ -703,6 +761,9 @@ class MainActivity : Activity() {
             .putString(TableTexture.KEY, texture.key)
             .apply()
         refreshSettings()
+        // The accent colour and the card borders follow the theme, so rebuild
+        // the hall when it changes.
+        if (themeChanged) recreate()
     }
 
     private fun chooseQuality() {
@@ -815,7 +876,7 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_VERTICAL
             background = rounded(
                 if (selected) "#1B2436" else "#0F1724",
-                if (selected) "#8B5CF6" else "#1E2C3E",
+                if (selected) accentColor else "#1E2C3E",
                 radius = 16
             )
             setPadding(dp(10), dp(10), dp(14), dp(10))
@@ -845,7 +906,7 @@ class MainActivity : Activity() {
             text(
                 if (selected) "●" else "○",
                 14f,
-                if (selected) "#8B5CF6" else "#3A4A60"
+                if (selected) accentColor else "#3A4A60"
             )
         )
         return row
@@ -1021,6 +1082,20 @@ class MainActivity : Activity() {
             textSize = size
             setTextColor(Color.parseColor(color))
             if (bold) typeface = Typeface.DEFAULT_BOLD
+        }
+
+    private fun cardButton(label: String, color: String, action: () -> Unit): Button =
+        Button(this).apply {
+            text = label
+            textSize = 15f
+            isAllCaps = false
+            setTextColor(Color.WHITE)
+            backgroundTintList = ColorStateList.valueOf(Color.parseColor(color))
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, dp(48)).apply {
+                topMargin = dp(10)
+                bottomMargin = dp(2)
+            }
+            setOnClickListener { action() }
         }
 
     private fun button(label: String, color: String, action: () -> Unit): Button =

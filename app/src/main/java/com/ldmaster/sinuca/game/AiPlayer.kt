@@ -10,8 +10,11 @@ data class AiShot(
     val angle: Double,
     val power: Double,
     val features: ShotFeatures? = null,
-    val targetNumber: Int = -1
+    val targetNumber: Int = -1,
+    val kind: AiShotKind = AiShotKind.POT
 )
+
+enum class AiShotKind { POT, SAFETY }
 
 enum class AiLevel(
     val label: String,
@@ -29,7 +32,9 @@ enum class AiLevel(
     /** Extra score per object ball potted beyond the first in the same shot. */
     val multiPotBonus: Double,
     /** How much the per-level learned pot rate influences the search. */
-    val learningWeight: Double
+    val learningWeight: Double,
+    /** When no pot is available, look for a defensive shot instead. */
+    val safetyEnabled: Boolean
 ) {
     EASY(
         "Fácil",
@@ -42,7 +47,8 @@ enum class AiLevel(
         searchBudgetMillis = 300,
         refineRounds = 0,
         multiPotBonus = 0.0,
-        learningWeight = 0.0
+        learningWeight = 0.0,
+        safetyEnabled = false
     ),
     MEDIUM(
         "Médio",
@@ -55,7 +61,8 @@ enum class AiLevel(
         searchBudgetMillis = 800,
         refineRounds = 1,
         multiPotBonus = 60.0,
-        learningWeight = 0.0
+        learningWeight = 0.0,
+        safetyEnabled = false
     ),
     HARD(
         "Difícil",
@@ -68,7 +75,8 @@ enum class AiLevel(
         searchBudgetMillis = 2400,
         refineRounds = 2,
         multiPotBonus = 140.0,
-        learningWeight = 1.0
+        learningWeight = 1.0,
+        safetyEnabled = true
     ),
     EXTREME(
         "Extremo",
@@ -81,7 +89,8 @@ enum class AiLevel(
         searchBudgetMillis = 4800,
         refineRounds = 3,
         multiPotBonus = 320.0,
-        learningWeight = 1.6
+        learningWeight = 1.6,
+        safetyEnabled = true
     )
 }
 
@@ -112,6 +121,8 @@ class AiPlayer(
     private var lastShotAt = 0L
     @Volatile
     private var pending: PendingShot? = null
+    @Volatile
+    private var pendingSafety: PendingSafety? = null
 
     fun tick() {
         if (released) return
@@ -146,8 +157,14 @@ class AiPlayer(
             }
             if (!released && shot != null) {
                 lastShotAt = System.nanoTime()
-                shot.features?.let {
-                    pending = PendingShot(it, ownBefore, shot.targetNumber)
+                if (shot.kind == AiShotKind.SAFETY) {
+                    shot.features?.let {
+                        pendingSafety = PendingSafety(it, countOpponent(snapshot))
+                    }
+                } else {
+                    shot.features?.let {
+                        pending = PendingShot(it, ownBefore, shot.targetNumber)
+                    }
                 }
                 onShot(shot)
             }
@@ -161,6 +178,11 @@ class AiPlayer(
      * the memory learn from it.
      */
     private fun resolvePending(snapshot: WorldSnapshot) {
+        resolvePendingPot(snapshot)
+        resolvePendingSafety(snapshot)
+    }
+
+    private fun resolvePendingPot(snapshot: WorldSnapshot) {
         val shot = pending ?: return
         if (snapshot.moving) {
             shot.seenMoving = true
@@ -179,6 +201,36 @@ class AiPlayer(
         memory?.record(level, shot.features, potted)
         pending = null
     }
+
+    /**
+     * A safety succeeds when the opponent's visit ends without potting. The
+     * model only learns after the opponent actually played, so the signal is
+     * real and not just "the shot did not scratch".
+     */
+    private fun resolvePendingSafety(snapshot: WorldSnapshot) {
+        val safety = pendingSafety ?: return
+        if (snapshot.winner >= 0) {
+            memory?.recordSafety(level, safety.features, snapshot.winner == player)
+            pendingSafety = null
+            return
+        }
+        if (snapshot.turn != player) {
+            safety.opponentSeen = true
+            safety.ticks = 0
+            return
+        }
+        if (!safety.opponentSeen) {
+            if (safety.ticks++ > SETTLE_TICKS) pendingSafety = null
+            return
+        }
+        if (snapshot.moving) return
+        val opponentAfter = countOpponent(snapshot)
+        memory?.recordSafety(level, safety.features, opponentAfter >= safety.opponentBefore)
+        pendingSafety = null
+    }
+
+    private fun countOpponent(snapshot: WorldSnapshot): Int =
+        snapshot.balls.count { it.active && !it.falling && groupOf(it.number) == 1 - player }
 
     private fun countOwn(snapshot: WorldSnapshot): Int = snapshot.balls.count {
         it.active && !it.falling && groupOf(it.number) == player
@@ -203,6 +255,11 @@ class AiPlayer(
         val targetNumber: Int
     ) {
         var seenMoving = false
+        var ticks = 0
+    }
+
+    private class PendingSafety(val features: ShotFeatures, val opponentBefore: Int) {
+        var opponentSeen = false
         var ticks = 0
     }
 
@@ -244,6 +301,10 @@ class AiPlanner(
             }
         }
         if (candidates.isEmpty()) {
+            if (level.safetyEnabled) {
+                val safety = planSafety(snapshot, player, deadline)
+                if (safety != null) return toShot(safety, AiShotKind.SAFETY)
+            }
             val target = targets.minByOrNull {
                 hypot(it.x - cue.x, it.z - cue.z)
             } ?: return AiShot(0.0, 0.3)
@@ -259,7 +320,8 @@ class AiPlanner(
             if (System.nanoTime() > deadline) break
             simulation.applySnapshot(snapshot)
             if (!simulation.shoot(candidate.angle, candidate.power)) continue
-            scored.add(Scored(candidate, simulateAndScore(candidate, player)))
+            val result = simulateAndScore(candidate, player)
+            scored.add(Scored(candidate, result.first, result.second))
         }
         if (scored.isEmpty()) return AiShot(0.0, 0.3)
         scored.sortByDescending { it.score }
@@ -267,6 +329,13 @@ class AiPlanner(
         var best = scored.first()
         if (level.refineRounds > 0) {
             best = refine(snapshot, player, scored, best, deadline)
+        }
+
+        // No pot available: a defensive shot that hides the cue or blocks the
+        // opponent is worth more than a hopeful miss.
+        if (level.safetyEnabled && best.potted == 0) {
+            val safety = planSafety(snapshot, player, deadline)
+            if (safety != null) return toShot(safety, AiShotKind.SAFETY)
         }
 
         val pick = if (best === scored.first() && scored.size > 1 &&
@@ -277,6 +346,10 @@ class AiPlanner(
         } else {
             best
         }
+        return toShot(pick, AiShotKind.POT)
+    }
+
+    private fun toShot(pick: Scored, kind: AiShotKind): AiShot {
         val noise = (random.nextDouble() * 2.0 - 1.0) *
             Math.toRadians(level.aimNoiseDegrees)
         val appliedPower = (pick.candidate.power * level.powerFactor).coerceIn(0.20, 0.95)
@@ -288,8 +361,138 @@ class AiPlanner(
                 distance = pick.candidate.distance,
                 power = appliedPower
             ),
-            targetNumber = pick.candidate.targetNumber
+            targetNumber = pick.candidate.targetNumber,
+            kind = kind
         )
+    }
+
+    /**
+     * Defensive candidates: nudge an own ball softly, or send the cue to a rail.
+     * The score rewards leaving the opponent with no clean line and the cue
+     * tucked against a cushion, which is the "trap" the player feels.
+     */
+    private fun planSafety(
+        snapshot: WorldSnapshot,
+        player: Int,
+        deadline: Long
+    ): Scored? {
+        simulation.applySnapshot(snapshot)
+        val cue = simulation.balls[0]
+        val ownGroup = if (player == 0) 1..7 else 9..15
+        val own = simulation.balls.filter { it.active && !it.falling && it.number in ownGroup }
+        val targets = if (own.isEmpty()) {
+            simulation.balls.filter { it.number == 8 && it.active }
+        } else {
+            own
+        }
+        if (targets.isEmpty()) return null
+
+        val angles = ArrayList<Double>(24)
+        for (target in targets.take(3)) {
+            val base = atan2(target.z - cue.z, target.x - cue.x)
+            angles.add(base)
+            angles.add(base + Math.toRadians(5.0))
+            angles.add(base - Math.toRadians(5.0))
+        }
+        for (step in 0 until 8) angles.add(Math.PI * 2.0 * step / 8.0)
+
+        var best: Scored? = null
+        for (angle in angles) {
+            for (power in doubleArrayOf(0.22, 0.30)) {
+                if (System.nanoTime() > deadline) return best
+                simulation.applySnapshot(snapshot)
+                if (!simulation.shoot(angle, power)) continue
+                settle()
+                val score = scoreSafety(player, angle, power)
+                val candidate = Candidate(
+                    targetNumber = -1,
+                    angle = angle,
+                    power = power,
+                    cosCut = 0.0,
+                    distance = 0.0,
+                    heuristic = 0.0
+                )
+                if (best == null || score > best.score) {
+                    best = Scored(candidate, score, 0)
+                }
+            }
+        }
+        return best
+    }
+
+    private fun scoreSafety(player: Int, angle: Double, power: Double): Double {
+        val cue = simulation.balls[0]
+        if (cue.falling) return -5000.0
+        val opponent = 1 - player
+        val options = cleanShots(opponent)
+        val hidden = hiddenOpponentBalls(opponent)
+        val rail = minOf(
+            Table.HALF_LENGTH - kotlin.math.abs(cue.x),
+            Table.HALF_WIDTH - kotlin.math.abs(cue.z)
+        ).coerceAtLeast(0.0)
+        var score = 400.0 -
+            options * 320.0 +
+            hidden * 70.0 +
+            rail.coerceIn(0.0, 0.15) * 1500.0
+        if (memory != null && level.learningWeight > 0.0) {
+            val features = ShotFeatures(0.0, 0.0, power)
+            val learned = memory.expectedSafety(level, features)
+            score += (learned - 0.5) * level.learningWeight * 500.0
+        }
+        return score
+    }
+
+    /** How many of the opponent's balls still have a direct pocket line. */
+    private fun cleanShots(player: Int): Int {
+        val cue = simulation.balls[0]
+        val ownGroup = if (player == 0) 1..7 else 9..15
+        val own = simulation.balls.filter { it.active && !it.falling && it.number in ownGroup }
+        val targets = if (own.isEmpty()) {
+            simulation.balls.filter { it.number == 8 && it.active }
+        } else {
+            own
+        }
+        return targets.count { hasCleanLine(cue, it) }
+    }
+
+    private fun hasCleanLine(cue: Ball, target: Ball): Boolean {
+        for (pocket in Table.POCKETS) {
+            val dx = pocket.x - target.x
+            val dz = pocket.z - target.z
+            val toPocket = hypot(dx, dz)
+            if (toPocket < Table.BALL_RADIUS * 2.0) continue
+            val ux = dx / toPocket
+            val uz = dz / toPocket
+            val ghostX = target.x - ux * Table.BALL_RADIUS * 2.0
+            val ghostZ = target.z - uz * Table.BALL_RADIUS * 2.0
+            val ax = ghostX - cue.x
+            val az = ghostZ - cue.z
+            val toGhost = hypot(ax, az)
+            if (toGhost < Table.BALL_RADIUS * 2.0) continue
+            val cosCut = (ax / toGhost) * ux + (az / toGhost) * uz
+            if (cosCut < MIN_CUT_COS) continue
+            if (!pathClear(cue.x, cue.z, ghostX, ghostZ, target.number)) continue
+            if (!pathClear(target.x, target.z, pocket.x, pocket.z, target.number)) continue
+            return true
+        }
+        return false
+    }
+
+    private fun hiddenOpponentBalls(player: Int): Int {
+        val cue = simulation.balls[0]
+        val ownGroup = if (player == 0) 1..7 else 9..15
+        return simulation.balls.count { ball ->
+            ball.active && !ball.falling && ball.number in ownGroup &&
+                !pathClear(cue.x, cue.z, ball.x, ball.z, ball.number)
+        }
+    }
+
+    private fun settle() {
+        var steps = 0
+        while (simulation.moving && steps < MAX_STEPS) {
+            simulation.step(STEP_SECONDS)
+            steps++
+        }
     }
 
     /**
@@ -322,8 +525,10 @@ class AiPlanner(
                         simulation.applySnapshot(snapshot)
                         if (!simulation.shoot(angle, power)) continue
                         val candidate = seed.candidate.copy(angle = angle, power = power)
-                        val score = simulateAndScore(candidate, player)
-                        if (score > best.score) best = Scored(candidate, score)
+                        val result = simulateAndScore(candidate, player)
+                        if (result.first > best.score) {
+                            best = Scored(candidate, result.first, result.second)
+                        }
                     }
                 }
             }
@@ -400,7 +605,7 @@ class AiPlanner(
         return true
     }
 
-    private fun simulateAndScore(candidate: Candidate, player: Int): Double {
+    private fun simulateAndScore(candidate: Candidate, player: Int): Pair<Double, Int> {
         val cue = simulation.balls[0]
         val target = simulation.balls[candidate.targetNumber]
         val ownBefore = countGroup(player)
@@ -414,12 +619,17 @@ class AiPlanner(
             steps++
         }
 
-        if (simulation.winner == player) return 1_000_000.0
-        if (simulation.winner >= 0) return -1_000_000.0
+        // A finished rack is a converted shot even when the winning ball was the
+        // eight, which belongs to no group.
+        if (simulation.winner == player) return 1_000_000.0 to 1
+        if (simulation.winner >= 0) return -1_000_000.0 to 1
 
         val ownAfter = countGroup(player)
         val opponentAfter = countGroup(1 - player)
-        val potted = ownBefore - ownAfter
+        val potted = (ownBefore - ownAfter).coerceAtLeast(0)
+        // The eight is nobody's group, so a converted target also counts as a pot
+        // for the "is there a pot available?" decision.
+        val converted = if (!target.active || target.falling) maxOf(potted, 1) else potted
         var score = 0.0
         if (scratched) score -= 4000.0
         if (!target.active) score += 900.0
@@ -443,7 +653,7 @@ class AiPlanner(
             val learned = memory.expectedPots(level, features)
             score += (learned - ShotFeatures.PRIOR) * level.learningWeight * 600.0
         }
-        return score
+        return score to converted
     }
 
     private fun countGroup(player: Int): Int = simulation.balls.count {
@@ -485,7 +695,11 @@ class AiPlanner(
         val heuristic: Double
     )
 
-    private data class Scored(val candidate: Candidate, val score: Double)
+    private data class Scored(
+        val candidate: Candidate,
+        val score: Double,
+        val potted: Int
+    )
 
     private companion object {
         const val MAX_STEPS = 900
