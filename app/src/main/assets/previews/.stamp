@@ -1,0 +1,36 @@
+{
+  "digest": "86ec5c65d73511778ca9247507afbee0eb4c4fbc06d38e60a5562d1e23ebd705",
+  "files": {
+    "app/src/main/assets/models/table.glb": "759d6757bfc8da30e3d9c258a46b9a10b1c834101977cc24844a46c6206c3eba",
+    "app/src/main/assets/models/table_a.glb": "759d6757bfc8da30e3d9c258a46b9a10b1c834101977cc24844a46c6206c3eba",
+    "app/src/main/assets/models/table_b.glb": "e12b36996781a8fc92204ebd4403be38cd9f164eb5c39ee0e218f34d79f3e15a",
+    "app/src/main/assets/models/table_c.glb": "b422541804cb06a2f5c551ecf14ec23448fc21f2e07b355400e54f1f81a8ee7c",
+    "app/src/main/assets/models/table_d.glb": "b4ae79b98894929d296bbf9e3d440b2bafc4688398ebf2e705a75fa322921db0",
+    "app/src/main/java/com/ldmaster/sinuca/game/TableSurface.kt": "99bcf157edc70c13e12d0a9573ca6c185ffbfb264c173feea2990a9718500d4c",
+    "app/src/main/java/com/ldmaster/sinuca/game/TableTexture.kt": "3409db42a83dcc20fe0322f77fba13aaec51da63978d94c5ddbba32897eb2d9e",
+    "app/src/main/java/com/ldmaster/sinuca/render/GlbLoader.kt": "73645889ac6fdf7a36d3afad62231e1ce74c5e8373a6df7a5e9a6e1885f90a27",
+    "app/src/main/java/com/ldmaster/sinuca/render/Shaders.kt": "ffb294c17fa40ba50903430101079a01f7827d0433c07cee5a5f0d60d4f76cfa"
+  },
+  "previews": {
+    "app/src/main/assets/previews/p1_a.jpg": "20b42644a2c0c63f4c10b7a4c4cc345881568015545b13a134518944804ac983",
+    "app/src/main/assets/previews/p1_b.jpg": "b3bc6837f9e80909245848fec5e6ca09d073710c5d377302b9499e664b3c2cb1",
+    "app/src/main/assets/previews/p1_c.jpg": "61412a116309df13e279061641357b7cca06886bb14fe7118f5a1bb9d6988cb2",
+    "app/src/main/assets/previews/p1_d.jpg": "b4adfe442e43a92abaea45fff33388ebe534d7c15997a56e5734da6ba3cba1e8",
+    "app/src/main/assets/previews/p2_a.jpg": "9c62d59ad5355c2b488d9cb7c87355130080d2ddf5a9a691db4318e1d792a14c",
+    "app/src/main/assets/previews/p2_b.jpg": "c89d8b2d80802e3e8589f92df046a6fb8abbc4faee6e421b97d0c33d5913edcb",
+    "app/src/main/assets/previews/p2_c.jpg": "cba5d598a83fdb72fc15c09e5201388343175689fea9b26cd307c7b553ac2607",
+    "app/src/main/assets/previews/p2_d.jpg": "6fb5414defefa537ddcfe38710c690959034f58e31c002faa317af9178382448",
+    "app/src/main/assets/previews/p3_a.jpg": "d0d4dd958d750df50b1065c77565947ec7627f3ae698d1c1410d53f4a7c76b6b",
+    "app/src/main/assets/previews/p3_b.jpg": "ee8fa925f48515e337fbdf379004e0ab927847cdb070ef088b60574db1c5527e",
+    "app/src/main/assets/previews/p3_c.jpg": "e2c3df26021662aca950a52cdb97c652d8a13b5e79cbd6ea09bd78b2248797dd",
+    "app/src/main/assets/previews/p3_d.jpg": "44ef7f82fdc2b8a54066888299c65409630ccae330fdf49885c071964fab6dff",
+    "app/src/main/assets/previews/p4_a.jpg": "1fc822f8a7ea0f0438e13a453082895e805752b9802ef5257cefbed77b18ab27",
+    "app/src/main/assets/previews/p4_b.jpg": "c715255e955080ec1e72ebe05ed5d2ffb58d7cb7c5b7f78737b86bf05ba4d418",
+    "app/src/main/assets/previews/p4_c.jpg": "6950f058ed107e105563dceb017ad5810e585c2701cc562311505931db950724",
+    "app/src/main/assets/previews/p4_d.jpg": "49b289a4fceb140a971987d4f7e2cafa37e8ad5a5e02e16c8b9abba090d5959b",
+    "app/src/main/assets/previews/p5_a.jpg": "ed4788b37028fc574f265fc49996ff502e1bf76d2a736b26e1482da33383a7fd",
+    "app/src/main/assets/previews/p5_b.jpg": "35e8defc5859a27ee293dac59f1030d5a0e5cc8cede3bcc077027024420011e3",
+    "app/src/main/assets/previews/p5_c.jpg": "cfce51071ddaeacf8523e93d0ab9880adc3f3da3575f1d9c74e83f39bb2391a4",
+    "app/src/main/assets/previews/p5_d.jpg": "86aea1b84dfdde3f93372dd47854a90cd52c9337baf3de3a2f18cd88875e0778"
+  }
+}

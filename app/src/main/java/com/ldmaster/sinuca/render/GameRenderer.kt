@@ -112,6 +112,7 @@ class GameRenderer(
     private val sceneTarget = SceneTarget()
     private val shadowMap = ShadowMap()
     private val post = PostFx()
+    private val missingUniforms = LinkedHashSet<String>()
     private var softwareRenderer = false
     private var samples = 1
     private var shadowSize = 2048
@@ -136,13 +137,15 @@ class GameRenderer(
         lineProgram = Gl.link(Shaders.LINE_VERTEX, Shaders.LINE_FRAGMENT)
         bindSceneUniforms()
         if (lineProgram != 0) {
-            uLineMvp = GLES30.glGetUniformLocation(lineProgram, "uMVP")
-            uLineColor = GLES30.glGetUniformLocation(lineProgram, "uColor")
+            uLineMvp = uniform(lineProgram, "uMVP")
+            uLineColor = uniform(lineProgram, "uColor")
+            reportMissingUniforms("line", lineProgram)
         }
         copyProgram = Gl.link(Shaders.QUAD_VERTEX, Shaders.COPY_FRAGMENT)
         if (copyProgram != 0) {
             copyQuad = Gl.fullScreenQuad()
-            uCopyImage = GLES30.glGetUniformLocation(copyProgram, "uImage")
+            uCopyImage = uniform(copyProgram, "uImage")
+            reportMissingUniforms("copy", copyProgram)
         }
 
         try {
@@ -179,24 +182,42 @@ class GameRenderer(
 
     private fun bindSceneUniforms() {
         if (sceneProgram == 0) return
-        uMvp = GLES30.glGetUniformLocation(sceneProgram, "uMVP")
-        uModel = GLES30.glGetUniformLocation(sceneProgram, "uModel")
-        uColor = GLES30.glGetUniformLocation(sceneProgram, "uColor")
-        uUseColor = GLES30.glGetUniformLocation(sceneProgram, "uUseColor")
-        uEye = GLES30.glGetUniformLocation(sceneProgram, "uEye")
-        uUseTexture = GLES30.glGetUniformLocation(sceneProgram, "uUseTexture")
-        uTexture = GLES30.glGetUniformLocation(sceneProgram, "uTexture")
-        uStyle = GLES30.glGetUniformLocation(sceneProgram, "uStyle")
-        uUseLiteral = GLES30.glGetUniformLocation(sceneProgram, "uUseLiteral")
-        uUsePattern = GLES30.glGetUniformLocation(sceneProgram, "uUsePattern")
-        uDetailMap = GLES30.glGetUniformLocation(sceneProgram, "uDetailMap")
-        uDetailScale = GLES30.glGetUniformLocation(sceneProgram, "uDetailScale")
-        uDetailBase = GLES30.glGetUniformLocation(sceneProgram, "uDetailBase")
-        uLightDir = GLES30.glGetUniformLocation(sceneProgram, "uLightDir")
-        uLightVP = GLES30.glGetUniformLocation(sceneProgram, "uLightVP")
-        uShadowMap = GLES30.glGetUniformLocation(sceneProgram, "uShadowMap")
-        uShadowTexel = GLES30.glGetUniformLocation(sceneProgram, "uShadowTexel")
-        uShadowStrength = GLES30.glGetUniformLocation(sceneProgram, "uShadowStrength")
+        uMvp = uniform(sceneProgram, "uMVP")
+        uModel = uniform(sceneProgram, "uModel")
+        uColor = uniform(sceneProgram, "uColor")
+        uUseColor = uniform(sceneProgram, "uUseColor")
+        uEye = uniform(sceneProgram, "uEye")
+        uUseTexture = uniform(sceneProgram, "uUseTexture")
+        uTexture = uniform(sceneProgram, "uTexture")
+        uStyle = uniform(sceneProgram, "uStyle")
+        uUseLiteral = uniform(sceneProgram, "uUseLiteral")
+        uUsePattern = uniform(sceneProgram, "uUsePattern")
+        uDetailMap = uniform(sceneProgram, "uDetailMap")
+        uDetailScale = uniform(sceneProgram, "uDetailScale")
+        uDetailBase = uniform(sceneProgram, "uDetailBase")
+        uLightDir = uniform(sceneProgram, "uLightDir")
+        uLightVP = uniform(sceneProgram, "uLightVP")
+        uShadowMap = uniform(sceneProgram, "uShadowMap")
+        uShadowTexel = uniform(sceneProgram, "uShadowTexel")
+        uShadowStrength = uniform(sceneProgram, "uShadowStrength")
+        reportMissingUniforms("scene", sceneProgram)
+    }
+
+    /**
+     * A uniform the shader stopped declaring used to fail silently: the lookup
+     * returns -1 and every glUniform call becomes a no-op. That is how a dead
+     * detail parameter shipped. Collect the misses and log them once instead.
+     */
+    private fun uniform(program: Int, name: String): Int {
+        val location = GLES30.glGetUniformLocation(program, name)
+        if (location < 0) missingUniforms.add(name)
+        return location
+    }
+
+    private fun reportMissingUniforms(label: String, program: Int) {
+        if (missingUniforms.isEmpty()) return
+        Log.e(TAG, "$label shader is missing uniforms: ${missingUniforms.sorted()}")
+        missingUniforms.clear()
     }
 
     private fun pickSamples(): Int {

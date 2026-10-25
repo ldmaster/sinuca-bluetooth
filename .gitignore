@@ -13,3 +13,7 @@ keystore.properties
 
 # Command Code workspace
 .commandcode/
+
+# Python helper caches
+__pycache__/
+*.pyc

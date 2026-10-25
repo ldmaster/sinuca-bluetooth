@@ -19,6 +19,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install preview check dependency
+        run: python3 -m pip install --quiet pillow
+
+      - name: Audit committed table GLBs
+        run: python3 scripts/glb_audit.py --all
+
+      - name: Check previews match shaders and models
+        run: python3 scripts/visual_check.py --check-stamp
+
+      - name: Check that the five styles are visually distinct
+        run: python3 scripts/visual_check.py --styles
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

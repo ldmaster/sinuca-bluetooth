@@ -99,7 +99,35 @@ def smooth_fraction(obj):
     return 100.0 * smooth / len(polygons)
 
 
+def write_stage(path: str, stage: str, source: str) -> None:
+    import hashlib
+    import json
+    from pathlib import Path
+
+    def digest(value: str) -> str | None:
+        file_path = Path(value)
+        if not file_path.is_file():
+            return None
+        hasher = hashlib.sha256()
+        with file_path.open("rb") as handle:
+            for block in iter(lambda: handle.read(1 << 20), b""):
+                hasher.update(block)
+        return hasher.hexdigest()
+
+    info = {
+        "stage": stage,
+        "blend": str(path),
+        "blend_sha256": digest(path),
+        "source": str(source),
+        "source_sha256": digest(source),
+        "script_sha256": digest(__file__),
+        "blender": bpy.app.version_string,
+    }
+    Path(str(path) + ".stage.json").write_text(json.dumps(info, indent=2) + "\n")
+
+
 def main():
+    source = bpy.data.filepath
     output = sys.argv[sys.argv.index("--") + 1] if "--" in sys.argv else None
     print("=== SMOOTH PASS ===")
     for obj in list(bpy.data.objects):
@@ -123,6 +151,7 @@ def main():
         )
     if output:
         bpy.ops.wm.save_as_mainfile(filepath=output)
+        write_stage(output, "smooth", source)
         print("saved", output)
 
 

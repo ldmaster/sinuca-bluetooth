@@ -1,0 +1,41 @@
+name = "sinuca-table"
+pass_threshold = 1.0
+
+# A 9 ft tournament table is an environment-sized prop: ~48k triangles once the
+# bevelled profiles and the pocket wells are counted. The floor/ceiling here are
+# deliberately tight around the current asset so a lost stage or a stray
+# decimation fails the gate instead of shipping.
+max_triangles = 90000
+min_triangles = 30000
+max_vertices_per_triangle = 1.0
+min_smooth_fraction = 0.80
+max_materials = 16
+required_materials = 8
+required_material_names = ["MAT_Wood", "MAT_Cloth", "MAT_Sight", "MAT_Slate"]
+
+min_objects = 10
+max_objects = 40
+min_meshes = 10
+required_objects = [
+  "SM_Apron",
+  "SM_Rails",
+  "SM_Legs",
+  "SM_PocketWells",
+  "SM_PocketJaws",
+  "SM_PocketRings",
+  "SM_Cloth",
+  "SM_Slate",
+  "SM_Sights",
+  "SM_Cushions",
+  "SM_Facings",
+]
+
+require_uvs = true
+max_non_manifold_edges = 0
+max_loose_vertices = 100
+max_dimension = 4.0
+
+# The export plan deletes FLOOR/BACKDROP and never renders; the render check is
+# covered by the visual regression instead.
+require_render = false
+require_glb = true

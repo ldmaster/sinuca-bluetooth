@@ -254,22 +254,32 @@ vec3 metalSurface(vec3 p, vec3 n, vec3 base, float style, inout float rough) {
 }
 
 vec3 ceramicSurface(vec3 p, vec3 n, vec3 base, float style, inout float rough) {
-    float speck = fbm(p.xz * 34.0) * fbm(p.yx * 34.0);
-    float speckAmount = 0.06;
-    float macroAmount = 0.02;
+    // Dark ceramics (pocket liner, facings) are rubber-like trim and must stay
+    // stable; the light body of the Neo theme carries the style.
+    float light = smoothstep(0.10, 0.40, max(base.r, max(base.g, base.b)));
+
+    float speckAmount = 0.03;
+    float macroAmount = 0.01;
     float gloss = 1.0;
-    if (style > 0.5 && style < 1.5) {
-        speckAmount = 0.18; macroAmount = 0.08; gloss = 1.40;
-    } else if (style > 1.5 && style < 2.5) {
-        speckAmount = 0.02; gloss = 0.60;
-    } else if (style > 2.5 && style < 3.5) {
-        speckAmount = 0.10; macroAmount = 0.14;
-    } else if (style > 3.5) {
-        speckAmount = 0.08;
+    float tint = 1.0;
+    if (style < 0.5) {
+        speckAmount = 0.05; macroAmount = 0.03;
+    } else if (style < 1.5) {
+        speckAmount = 0.20; macroAmount = 0.14; gloss = 1.55; tint = 0.90;
+    } else if (style < 2.5) {
+        speckAmount = 0.01; macroAmount = 0.01; gloss = 0.45; tint = 1.06;
+    } else if (style < 3.5) {
+        speckAmount = 0.10; macroAmount = 0.30;
+    } else {
+        speckAmount = 0.14; macroAmount = 0.12; tint = 0.95;
     }
-    vec3 color = base * (1.0 + speckAmount * (speck - 0.5) * 2.0
-                        + macroAmount * (fbm(p.xz * 0.8) - 0.5) * 2.0);
-    rough = clamp(rough * gloss, 0.06, 0.90);
+
+    float speck = fbm(p.xz * 34.0) * fbm(p.yx * 34.0);
+    float macro = fbm(p.xz * 0.8) - 0.5;
+    vec3 color = base * (1.0
+        + (speckAmount * (speck - 0.5) * 2.0 + macroAmount * macro * 2.0) * light
+        + (tint - 1.0) * light);
+    rough = clamp(rough * mix(1.0, gloss, light), 0.06, 0.90);
     return color;
 }
 

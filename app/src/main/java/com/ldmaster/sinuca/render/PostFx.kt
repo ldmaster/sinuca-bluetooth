@@ -35,6 +35,8 @@ class PostFx {
     private var uGrain = 0
     private var uTime = 0
 
+    private val missingUniforms = LinkedHashSet<String>()
+
     private val levels = 3
     private var levelCount = 0
     private val framebuffers = IntArray(levels)
@@ -52,26 +54,36 @@ class PostFx {
         blurProgram = Gl.link(Shaders.QUAD_VERTEX, Shaders.BLUR_FRAGMENT)
         compositeProgram = Gl.link(Shaders.QUAD_VERTEX, Shaders.COMPOSITE_FRAGMENT)
         if (brightProgram != 0) {
-            uBrightScene = GLES30.glGetUniformLocation(brightProgram, "uScene")
-            uBrightThreshold = GLES30.glGetUniformLocation(brightProgram, "uThreshold")
+            uBrightScene = uniform(brightProgram, "uScene")
+            uBrightThreshold = uniform(brightProgram, "uThreshold")
         }
         if (blurProgram != 0) {
-            uBlurImage = GLES30.glGetUniformLocation(blurProgram, "uImage")
-            uBlurDirection = GLES30.glGetUniformLocation(blurProgram, "uDirection")
+            uBlurImage = uniform(blurProgram, "uImage")
+            uBlurDirection = uniform(blurProgram, "uDirection")
         }
         if (compositeProgram != 0) {
-            uScene = GLES30.glGetUniformLocation(compositeProgram, "uScene")
-            uBloom0 = GLES30.glGetUniformLocation(compositeProgram, "uBloom0")
-            uBloom1 = GLES30.glGetUniformLocation(compositeProgram, "uBloom1")
-            uBloom2 = GLES30.glGetUniformLocation(compositeProgram, "uBloom2")
-            uBloomStrength = GLES30.glGetUniformLocation(compositeProgram, "uBloomStrength")
-            uExposure = GLES30.glGetUniformLocation(compositeProgram, "uExposure")
-            uVignette = GLES30.glGetUniformLocation(compositeProgram, "uVignette")
-            uGrain = GLES30.glGetUniformLocation(compositeProgram, "uGrain")
-            uTime = GLES30.glGetUniformLocation(compositeProgram, "uTime")
+            uScene = uniform(compositeProgram, "uScene")
+            uBloom0 = uniform(compositeProgram, "uBloom0")
+            uBloom1 = uniform(compositeProgram, "uBloom1")
+            uBloom2 = uniform(compositeProgram, "uBloom2")
+            uBloomStrength = uniform(compositeProgram, "uBloomStrength")
+            uExposure = uniform(compositeProgram, "uExposure")
+            uVignette = uniform(compositeProgram, "uVignette")
+            uGrain = uniform(compositeProgram, "uGrain")
+            uTime = uniform(compositeProgram, "uTime")
         }
         if (!ready) Log.e(TAG, "post programs failed to link")
+        if (missingUniforms.isNotEmpty()) {
+            Log.e(TAG, "post shaders are missing uniforms: ${missingUniforms.sorted()}")
+            missingUniforms.clear()
+        }
         resize(width, height)
+    }
+
+    private fun uniform(program: Int, name: String): Int {
+        val location = GLES30.glGetUniformLocation(program, name)
+        if (location < 0) missingUniforms.add(name)
+        return location
     }
 
     fun resize(width: Int, height: Int) {

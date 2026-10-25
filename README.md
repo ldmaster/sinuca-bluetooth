@@ -78,6 +78,32 @@ Vistas extras: [100% de cima, com as caçapas](docs/screenshot-top.png) ·
 - **Cinco texturas 4K** — Scan Fidelity, Cinematic Wear, Clean Premium, Procedural Infinite e Mobile Atlas —, selecionadas pelo botão **Textura 4K**. Cada tema × textura forma **20 combinações**; as 20 miniaturas do menu são capturas do próprio renderer. Cada estilo é um preset completo: contraste do veio, densidade dos anéis (28–60 bandas/m), poros, variação macro, arranhões e verniz (roughness 0,06–0,80). O veio é procedural em coordenadas de mundo, o verniz vem do `roughnessFactor` do glTF e o mapa `detail_*` entra como altura/rugosidade/AO, nunca como cor (o estilo Mobile Atlas usa o atlas com peso 1,0; o Procedural Infinite ignora). O botão **Qualidade 4K** escolhe entre **1080 detalhado** (padrão), **720**, **540**, **2K detalhado**, **Literal** (mapas 4096×4096) e **Procedural** (detalhe calculado no shader, APK leve); a escolha fica em SharedPreferences.
 - **Pipeline de render** — cena em HDR (`RGBA16F` quando o driver suporta, senão `RGBA8`) com MSAA 4× em renderbuffer e resolve só de cor; shadow map 2048² (1024² no emulador) com PCF 5×5, culling de faces frontais no passe de profundidade; PBR GGX + Smith + Schlick com `metallicFactor`/`roughnessFactor` lidos do glTF; ambiente analítico para reflexos; e composite com bloom, ACES, vinheta e grão. O EGL é `RGBA8888` + depth 24, não o RGB565 padrão do `GLSurfaceView`.
 
+## Validação de assets
+
+Nada é copiado para `assets/models/` sem passar pelos gates:
+
+```bash
+./scripts/build_tables.sh            # sculpt -> smooth -> export -> audit -> install
+THEMES="a" ./scripts/build_tables.sh # um tema só
+```
+
+- `specs/rubric.toml` — orçamento do projeto (faixa de triângulos,
+  vértices/triângulo, materiais e objetos obrigatórios, shading suave). Sem ele o
+  forge cai no perfil de prop (20k triângulos) e a mesa falha por definição.
+- `scripts/forge_export.py` — roda `forge apply` com o rubric, recusa export com
+  `passed` falso e confere o sidecar de estágio antes de exportar.
+- `scripts/pipeline.py` — `check-stage` (recusa `.blend` de estágio errado) e
+  `manifest` (grava `var/rebuild/manifest.json` com os hashes da cadeia).
+- `scripts/glb_audit.py` — audita o GLB final: nós e materiais obrigatórios,
+  faixa de triângulos, **vértices/triângulo** (proxy de shading suave), índices
+  32-bit, normais/UVs e bbox dentro de ±4 cm.
+- `scripts/visual_check.py` — exige que os 5 estilos difiram entre si (≥1% na
+  faixa do trilho), compara com baseline por SSIM e checa o frescor das previews
+  contra `assets/previews/.stamp`.
+
+O CI roda a auditoria dos GLBs, o frescor das previews e a separação dos estilos
+antes do Gradle.
+
 ## Requisitos
 
 - Android 8.0+ (minSdk 26), compilado/targetSdk 36.
