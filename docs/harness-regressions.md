@@ -171,6 +171,7 @@ todo push que toque `assets/models`, `render/` ou `previews/`.
 | Separação entre estilos | `scripts/visual_check.py --styles` (piso 1%, pior par medido 1,49%) |
 | Baseline visual | `scripts/visual_check.py --baseline` (changed-ratio + SSIM) |
 | Contrato de uniforms | `GameRenderer.uniform()` + `PostFx.uniform()` logam nomes ausentes |
+| Guardas de geometria | `smooth_table.py`: bevel < 25% do eixo mais fino, escala aplicada, triângulos não caem e non-manifold não cresce; falha com exit 1 sem salvar |
 | CI | `.github/workflows/android.yml` roda audit, stamp e separação |
 | Stats/rubric do harness | `runner.py` (`smooth_fraction`, `vertices_per_triangle`, `applied_scale`, `color_attributes`), `eval.py` (`triangle_floor`, `vertex_triangle_ratio`, `smooth_shading`, `required_materials_by_name`, `applied_scale`) |
 | Export explícito | `ops.ExportOp.apply_modifiers`, `vertex_colors`, `yup` |

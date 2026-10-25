@@ -41,6 +41,53 @@ BEVEL_WIDTHS = {
 
 SMOOTH_ANGLE = math.radians(35.0)
 
+#: Guard failures collected during the pass; any entry fails the run.
+FAILURES: list[str] = []
+
+
+def non_manifold_edges(obj) -> int:
+    import bmesh
+
+    mesh = bmesh.new()
+    try:
+        mesh.from_mesh(obj.data)
+        return sum(1 for edge in mesh.edges if not edge.is_manifold)
+    finally:
+        mesh.free()
+
+
+def guard_bevel(obj, width: float) -> None:
+    """A bevel wider than a quarter of the thinnest axis eats the part.
+
+    Moldings are 12 mm thick, sights are 3 mm: the width has to be chosen per
+    object, and a wrong table entry should stop the run instead of shipping a
+    collapsed edge.
+    """
+    smallest = min(obj.dimensions)
+    if smallest > 0 and width >= smallest * 0.25:
+        FAILURES.append(
+            f"{obj.name}: bevel {width * 1000:.2f} mm is >= 25% of the thinnest "
+            f"axis ({smallest * 1000:.1f} mm)"
+        )
+    if any(abs(value - 1.0) > 1e-4 for value in obj.scale):
+        FAILURES.append(f"{obj.name}: scale not applied before bevel")
+
+
+def guard_after(obj, triangles_before: int, non_manifold_before: int) -> None:
+    obj.data.calc_loop_triangles()
+    triangles_after = len(obj.data.loop_triangles)
+    if triangles_after < triangles_before:
+        FAILURES.append(
+            f"{obj.name}: smoothing removed triangles ({triangles_before} -> "
+            f"{triangles_after})"
+        )
+    non_manifold_after = non_manifold_edges(obj)
+    if non_manifold_after > non_manifold_before:
+        FAILURES.append(
+            f"{obj.name}: non-manifold edges grew ({non_manifold_before} -> "
+            f"{non_manifold_after})"
+        )
+
 
 def activate(obj):
     bpy.ops.object.select_all(action="DESELECT")
@@ -139,9 +186,12 @@ def main():
         make_single_user(obj)
         apply_scale(obj)
         width = BEVEL_WIDTHS.get(obj.name)
+        non_manifold_before = non_manifold_edges(obj)
         if width:
+            guard_bevel(obj, width)
             add_bevel(obj, width)
         method = shade_smooth(obj)
+        guard_after(obj, before_tris, non_manifold_before)
         obj.data.calc_loop_triangles()
         print(
             f"{obj.name:20s} verts {before_verts:6d} -> {len(obj.data.vertices):6d} "
@@ -149,6 +199,11 @@ def main():
             f"smooth {before_smooth:5.1f}% -> {smooth_fraction(obj):5.1f}% "
             f"({method})"
         )
+    if FAILURES:
+        print("=== GUARD FAILURES ===")
+        for failure in FAILURES:
+            print("FAIL", failure)
+        raise SystemExit(1)
     if output:
         bpy.ops.wm.save_as_mainfile(filepath=output)
         write_stage(output, "smooth", source)
