@@ -28,6 +28,7 @@ import javax.microedition.khronos.opengles.GL10
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
+import kotlin.math.hypot
 import kotlin.math.sin
 import kotlin.math.sqrt
 
@@ -49,6 +50,9 @@ class GameRenderer(
 
     @Volatile
     var showTrajectory: Boolean = false
+
+    @Volatile
+    var aiOpponent: Boolean = false
 
     @Volatile
     private var shotPower: Float = 0.55f
@@ -78,6 +82,45 @@ class GameRenderer(
     private var floorMesh: GpuMesh? = null
     private var backdropMesh: GpuMesh? = null
     private var detailTexture = 0
+    private var humanPlayer: SkinnedModel? = null
+    private var robotPlayer: SkinnedModel? = null
+    private var uBones = 0
+    private var uSkinned = 0
+    private val humanMatrix = FloatArray(16)
+    private val robotMatrix = FloatArray(16)
+    private var humanVisible = false
+    private var robotVisible = false
+    private var humanActive = false
+    private var robotActive = false
+    private var activeHandX = 0f
+    private var activeHandZ = 0f
+    private var activeIsHuman = true
+    private var celebrationModel: SkinnedModel? = null
+    private var celebrationUntil = 0L
+    private var pottedAtShot = 0
+    private var shotByPlayer = 0
+    private var wasMoving = false
+
+    private class Spectator {
+        val pos = floatArrayOf(0f, 0f)
+        val path = ArrayList<FloatArray>()
+        var targetX = 0f
+        var targetZ = 0f
+        var yaw = 0f
+        var walking = false
+        var initialized = false
+    }
+
+    private val humanSpot = Spectator()
+    private val robotSpot = Spectator()
+    private var watchTurn = -1
+    private var watchReady = false
+    private var watchX = 0f
+    private var watchZ = 0f
+    private var cueFrozen = false
+    private var frozenCueX = 0f
+    private var frozenCueZ = 0f
+    private var frozenAim = 0.0
     private var lineBuffer = 0
     private var copyProgram = 0
     private var copyQuad = 0
@@ -179,6 +222,12 @@ class GameRenderer(
         backdropMesh = GpuMesh(backdrop())
         for (number in 0..15) ballTextures[number] = createBallTexture(number)
         if (textureQuality != TextureQuality.PROCEDURAL) detailTexture = loadDetailTexture()
+        humanPlayer = runCatching {
+            SkinnedModel(context, "models/player_human.glb")
+        }.getOrNull()
+        robotPlayer = runCatching {
+            SkinnedModel(context, "models/player_robot.glb")
+        }.getOrNull()
 
         val ids = IntArray(1)
         GLES30.glGenBuffers(1, ids, 0)
@@ -212,6 +261,8 @@ class GameRenderer(
         uShadowMap = uniform(sceneProgram, "uShadowMap")
         uShadowTexel = uniform(sceneProgram, "uShadowTexel")
         uShadowStrength = uniform(sceneProgram, "uShadowStrength")
+        uBones = uniform(sceneProgram, "uBones")
+        uSkinned = uniform(sceneProgram, "uSkinned")
         reportMissingUniforms("scene", sceneProgram)
     }
 
@@ -421,6 +472,7 @@ class GameRenderer(
         val dt = ((now - lastFrame) / 1_000_000_000.0).coerceIn(0.0, 0.05)
         lastFrame = now
         synchronized(world) { world.step(dt) }
+        updateCharacters(dt.toFloat())
 
         if (sceneProgram == 0 && lineProgram == 0) return
 
@@ -495,6 +547,7 @@ class GameRenderer(
         }
 
         drawCue(model)
+        drawCharacters()
 
         if (sceneProgram != 0) {
             GLES30.glUseProgram(sceneProgram)
@@ -540,18 +593,384 @@ class GameRenderer(
             sphereMesh?.draw()
         }
         drawCueShadow(model)
+        drawCharacterShadow(humanPlayer, humanVisible, humanMatrix, model, mvp)
+        drawCharacterShadow(robotPlayer, robotVisible, robotMatrix, model, mvp)
+    }
+
+    private fun drawCharacterShadow(
+        skinned: SkinnedModel?,
+        visible: Boolean,
+        matrix: FloatArray,
+        model: FloatArray,
+        mvp: FloatArray
+    ) {
+        if (skinned == null || !visible || !skinned.isReady) return
+        Matrix.multiplyMM(mvp, 0, shadowMap.matrix, 0, matrix, 0)
+        shadowMap.setMvp(mvp)
+        shadowMap.setSkinned(skinned)
+        for (primitive in skinned.primitivesList) {
+            skinned.draw(primitive, shadowMap.programId)
+        }
+        shadowMap.clearSkinned()
     }
 
     private fun drawCueShadow(model: FloatArray) {
         val mesh = cueMesh ?: return
         val cue = world.cueBall()
-        if (!cue.active || world.winner >= 0 || world.moving) return
-        if (!world.canShoot(localPlayer)) return
+        if (!cue.active || world.winner >= 0) return
+        if (!world.moving && !world.canShoot(localPlayer)) return
         cueTransform(model)
         val mvp = FloatArray(16)
         Matrix.multiplyMM(mvp, 0, shadowMap.matrix, 0, model, 0)
         shadowMap.setMvp(mvp)
         mesh.draw()
+    }
+
+    /**
+     * Both players live in the scene. The shooter steps behind the cue ball,
+     * puts the bridge hand on the rail and the grip hand on the cue, and looks
+     * along the shot; the other walks around the table to watch from the far
+     * side, carrying their own cue. Potting one ball or two or more triggers a
+     * different celebration.
+     */
+    private fun updateCharacters(dt: Float) {
+        val cue = world.cueBall()
+        val human = humanPlayer
+        val robot = if (aiOpponent) robotPlayer else null
+        if (world.moving) {
+            if (!cueFrozen) {
+                frozenCueX = cue.x.toFloat()
+                frozenCueZ = cue.z.toFloat()
+                frozenAim = world.aimAngle
+                cueFrozen = true
+            }
+        } else {
+            cueFrozen = false
+        }
+        humanVisible = human != null && cue.active && human.isReady
+        robotVisible = robot != null && cue.active && robot.isReady
+        if (!humanVisible && !robotVisible) return
+
+        val turn = world.turn
+        humanActive = !aiOpponent || turn == 0
+        robotActive = aiOpponent && turn == 1
+        activeIsHuman = humanActive
+
+        val now = System.nanoTime()
+        if (world.moving && !wasMoving) {
+            pottedAtShot = pottedTotal()
+            shotByPlayer = if (aiOpponent && turn == 1) 1 else 0
+        }
+        if (!world.moving && wasMoving) {
+            val potted = pottedTotal() - pottedAtShot
+            val model = if (shotByPlayer == 0) human else robot
+            if (potted > 0 && model != null) {
+                model.setClip(
+                    if (potted >= 2) "celebrate_big" else "celebrate",
+                    loop = false
+                )
+                celebrationModel = model
+                celebrationUntil = now + if (potted >= 2) {
+                    1_600_000_000L
+                } else {
+                    1_200_000_000L
+                }
+            }
+        }
+        wasMoving = world.moving
+
+        val celebrating = celebrationModel != null && now < celebrationUntil
+        if (!celebrating) celebrationModel = null
+
+        if (!watchReady || turn != watchTurn) {
+            val hand = cueGrip(cue.x, cue.z, world.aimAngle)
+            val spot = spectatorTarget(hand[0], hand[1])
+            watchX = spot[0]
+            watchZ = spot[1]
+            watchTurn = turn
+            watchReady = true
+        }
+
+        if (humanVisible) {
+            if (humanActive) {
+                syncSpot(humanSpot, placeShot(humanMatrix, cue, world.aimAngle))
+            } else {
+                stepSpectator(humanSpot, humanMatrix, watchX, watchZ, dt)
+            }
+        }
+        if (robotVisible) {
+            if (robotActive) {
+                syncSpot(robotSpot, placeShot(robotMatrix, cue, world.aimAngle))
+            } else {
+                stepSpectator(robotSpot, robotMatrix, watchX, watchZ, dt)
+            }
+        }
+
+        human?.let {
+            it.update(dt)
+            if (!celebrating || celebrationModel !== it) {
+                val clip = when {
+                    humanActive && world.moving -> "strike"
+                    humanActive -> "aim"
+                    humanSpot.walking -> "walk"
+                    else -> "idle"
+                }
+                if (it.currentClip != clip) it.setClip(clip, loop = clip != "strike")
+            }
+        }
+        robot?.let {
+            it.update(dt)
+            if (!celebrating || celebrationModel !== it) {
+                val clip = when {
+                    robotActive && world.moving -> "strike"
+                    robotActive -> "aim"
+                    robotSpot.walking -> "walk"
+                    else -> "idle"
+                }
+                if (it.currentClip != clip) it.setClip(clip, loop = clip != "strike")
+            }
+        }
+    }
+
+    /** The spectator picks the side of the table farthest from the shot. */
+    private fun spectatorTarget(handX: Float, handZ: Float): FloatArray {
+        val marginX = (Table.HALF_LENGTH + 1.0).toFloat()
+        val marginZ = (Table.HALF_WIDTH + 0.95).toFloat()
+        val candidates = arrayOf(
+            floatArrayOf(0f, marginZ),
+            floatArrayOf(0f, -marginZ),
+            floatArrayOf(marginX, 0f),
+            floatArrayOf(-marginX, 0f)
+        )
+        return candidates.maxByOrNull {
+            hypot(it[0] - handX, it[1] - handZ)
+        } ?: candidates[0]
+    }
+
+    private fun syncSpot(spot: Spectator, shot: FloatArray) {
+        spot.pos[0] = shot[0]
+        spot.pos[1] = shot[1]
+        spot.yaw = shot[2]
+        spot.walking = false
+        spot.initialized = true
+    }
+
+    private fun stepSpectator(
+        spot: Spectator,
+        model: FloatArray,
+        targetX: Float,
+        targetZ: Float,
+        dt: Float
+    ) {
+        if (!spot.initialized) {
+            spot.pos[0] = targetX
+            spot.pos[1] = targetZ
+            spot.yaw = Math.atan2(-targetX.toDouble(), -targetZ.toDouble()).toFloat()
+            spot.initialized = true
+            spot.targetX = targetX
+            spot.targetZ = targetZ
+        } else if (targetX != spot.targetX || targetZ != spot.targetZ) {
+            spot.path.clear()
+            spot.path.addAll(buildWalkPath(spot.pos[0], spot.pos[1], targetX, targetZ))
+            spot.targetX = targetX
+            spot.targetZ = targetZ
+        }
+
+        var moveX = 0f
+        var moveZ = 0f
+        val waypoint = spot.path.firstOrNull()
+        if (waypoint != null) {
+            val dx = waypoint[0] - spot.pos[0]
+            val dz = waypoint[1] - spot.pos[1]
+            val distance = hypot(dx, dz)
+            if (distance < 0.08f) {
+                spot.path.removeAt(0)
+            } else {
+                val step = minOf(1.15f * dt, distance)
+                moveX = dx / distance * step
+                moveZ = dz / distance * step
+                spot.pos[0] += moveX
+                spot.pos[1] += moveZ
+            }
+        }
+        spot.walking = spot.path.isNotEmpty()
+        val desiredYaw = if (spot.walking && (moveX != 0f || moveZ != 0f)) {
+            Math.atan2(moveX.toDouble(), moveZ.toDouble()).toFloat()
+        } else {
+            Math.atan2(-spot.pos[0].toDouble(), -spot.pos[1].toDouble()).toFloat()
+        }
+        spot.yaw = lerpAngle(spot.yaw, desiredYaw, (dt * 8f).coerceIn(0f, 1f))
+        placeRest(model, spot.pos[0], spot.pos[1], spot.yaw)
+    }
+
+    /**
+     * The spectator walks around the table, never across it: the route hugs the
+     * ring outside the rails and turns at the corners.
+     */
+    private fun buildWalkPath(
+        fromX: Float,
+        fromZ: Float,
+        toX: Float,
+        toZ: Float
+    ): List<FloatArray> {
+        val rx = (Table.HALF_LENGTH + 0.95).toFloat()
+        val rz = (Table.HALF_WIDTH + 0.85).toFloat()
+        val corners = arrayOf(
+            floatArrayOf(rx, rz),
+            floatArrayOf(-rx, rz),
+            floatArrayOf(-rx, -rz),
+            floatArrayOf(rx, -rz)
+        )
+        val from = ringPoint(fromX, fromZ, rx, rz)
+        val to = ringPoint(toX, toZ, rx, rz)
+        val path = ArrayList<FloatArray>()
+        path.add(from)
+        val startCorner = nearestCorner(from, corners)
+        val endCorner = nearestCorner(to, corners)
+        if (startCorner == endCorner) {
+            path.add(corners[startCorner])
+        } else {
+            val forward = (endCorner - startCorner + 4) % 4
+            val backward = (startCorner - endCorner + 4) % 4
+            if (forward <= backward) {
+                for (step in 1..forward) path.add(corners[(startCorner + step) % 4])
+            } else {
+                for (step in 1..backward) path.add(corners[(startCorner - step + 4) % 4])
+            }
+        }
+        path.add(to)
+        path.add(floatArrayOf(toX, toZ))
+        return path
+    }
+
+    private fun ringPoint(x: Float, z: Float, rx: Float, rz: Float): FloatArray {
+        val gapX = rx - abs(x)
+        val gapZ = rz - abs(z)
+        return if (gapX < gapZ) {
+            floatArrayOf(Math.signum(x) * rx, z.coerceIn(-rz, rz))
+        } else {
+            floatArrayOf(x.coerceIn(-rx, rx), Math.signum(z) * rz)
+        }
+    }
+
+    private fun nearestCorner(point: FloatArray, corners: Array<FloatArray>): Int {
+        var best = 0
+        var bestDistance = Float.MAX_VALUE
+        for (index in corners.indices) {
+            val distance = hypot(corners[index][0] - point[0], corners[index][1] - point[1])
+            if (distance < bestDistance) {
+                bestDistance = distance
+                best = index
+            }
+        }
+        return best
+    }
+
+    private fun lerpAngle(from: Float, to: Float, amount: Float): Float {
+        val twoPi = (Math.PI * 2.0).toFloat()
+        var delta = (to - from) % twoPi
+        if (delta > Math.PI) delta -= twoPi
+        if (delta < -Math.PI) delta += twoPi
+        return from + delta * amount
+    }
+
+    private fun pottedTotal(): Int {
+        return world.balls.count { it.number != 0 && !it.active }
+    }
+
+    /** Puts the hands on the cue line where it leaves the playing rectangle. */
+    private fun cueGrip(x: Double, z: Double, aim: Double): FloatArray {
+        val dx = -cos(aim)
+        val dz = -sin(aim)
+        var t = Double.MAX_VALUE
+        if (dx > 1e-6) t = minOf(t, (Table.HALF_LENGTH - x) / dx)
+        else if (dx < -1e-6) t = minOf(t, (-Table.HALF_LENGTH - x) / dx)
+        if (dz > 1e-6) t = minOf(t, (Table.HALF_WIDTH - z) / dz)
+        else if (dz < -1e-6) t = minOf(t, (-Table.HALF_WIDTH - z) / dz)
+        if (!t.isFinite() || t <= 0.0) t = 0.6
+        val railX = x + dx * t
+        val railZ = z + dz * t
+        val hitX = abs(abs(railX) - Table.HALF_LENGTH) < 0.002
+        val outX = if (hitX) Math.signum(railX) * 0.06 else 0.0
+        val outZ = if (!hitX) Math.signum(railZ) * 0.06 else 0.0
+        return floatArrayOf((railX + outX).toFloat(), (railZ + outZ).toFloat())
+    }
+
+    private fun placeShot(model: FloatArray, cue: Ball, aim: Double): FloatArray {
+        val hand = cueGrip(cue.x, cue.z, aim)
+        val toBallX = cue.x - hand[0]
+        val toBallZ = cue.z - hand[1]
+        val length = hypot(toBallX, toBallZ).coerceAtLeast(0.001)
+        val ux = (toBallX / length).toFloat()
+        val uz = (toBallZ / length).toFloat()
+        val originX = hand[0] - ux * HAND_FORWARD
+        val originZ = hand[1] - uz * HAND_FORWARD
+        val yaw = Math.atan2(ux.toDouble(), uz.toDouble()).toFloat()
+        Matrix.setIdentityM(model, 0)
+        Matrix.translateM(model, 0, originX, 0f, originZ)
+        Matrix.rotateM(model, 0, Math.toDegrees(yaw.toDouble()).toFloat(), 0f, 1f, 0f)
+        return floatArrayOf(originX, originZ, yaw)
+    }
+
+    private fun placeRest(model: FloatArray, x: Float, z: Float, yaw: Float) {
+        Matrix.setIdentityM(model, 0)
+        Matrix.translateM(model, 0, x, 0f, z)
+        Matrix.rotateM(model, 0, Math.toDegrees(yaw.toDouble()).toFloat(), 0f, 1f, 0f)
+    }
+
+    private fun drawCharacters() {
+        if (sceneProgram == 0) return
+        drawCharacter(humanPlayer, humanVisible, humanMatrix)
+        drawCharacter(robotPlayer, robotVisible, robotMatrix)
+        // The waiting player holds their own cue, upright beside them.
+        if (humanVisible && !humanActive) drawWaitingCue(humanSpot)
+        if (robotVisible && !robotActive) drawWaitingCue(robotSpot)
+    }
+
+    private fun drawWaitingCue(spot: Spectator) {
+        val mesh = cueMesh ?: return
+        val rightX = Math.cos(spot.yaw.toDouble()).toFloat()
+        val rightZ = -Math.sin(spot.yaw.toDouble()).toFloat()
+        val forwardX = Math.sin(spot.yaw.toDouble()).toFloat()
+        val forwardZ = Math.cos(spot.yaw.toDouble()).toFloat()
+        val x = spot.pos[0] + rightX * 0.34f + forwardX * 0.06f
+        val z = spot.pos[1] + rightZ * 0.34f + forwardZ * 0.06f
+        val model = FloatArray(16)
+        Matrix.setIdentityM(model, 0)
+        Matrix.translateM(model, 0, x, cueHalfLength, z)
+        Matrix.rotateM(
+            model, 0, Math.toDegrees(spot.yaw.toDouble()).toFloat(), 0f, 1f, 0f
+        )
+        Matrix.rotateM(model, 0, 90f, 0f, 0f, 1f)
+        val mvp = FloatArray(16)
+        Matrix.multiplyMM(mvp, 0, viewProjection, 0, model, 0)
+        drawMesh(mesh, mvp, model, useVertexColor = true, color = WHITE)
+    }
+
+    private fun drawCharacter(
+        skinned: SkinnedModel?,
+        visible: Boolean,
+        matrix: FloatArray
+    ) {
+        if (skinned == null || !visible || !skinned.isReady) return
+        val mvp = FloatArray(16)
+        Matrix.multiplyMM(mvp, 0, viewProjection, 0, matrix, 0)
+        GLES30.glUseProgram(sceneProgram)
+        GLES30.glUniformMatrix4fv(uMvp, 1, false, mvp, 0)
+        GLES30.glUniformMatrix4fv(uModel, 1, false, matrix, 0)
+        GLES30.glUniform1f(uUseColor, 0f)
+        GLES30.glUniform1f(uUseTexture, 0f)
+        GLES30.glUniform1f(uUseLiteral, 0f)
+        GLES30.glUniform1f(uUsePattern, 0f)
+        GLES30.glUniform1f(uStyle, 0f)
+        GLES30.glUniform1f(uDetailBase, 0f)
+        GLES30.glUniform1f(uSkinned, 1f)
+        skinned.uploadBones(sceneProgram, uBones)
+        for (primitive in skinned.primitivesList) {
+            GLES30.glVertexAttrib3f(4, primitive.metallic, primitive.roughness, 6f)
+            skinned.draw(primitive, sceneProgram)
+        }
+        GLES30.glUniform1f(uSkinned, 0f)
     }
 
     private fun drawAim() {
@@ -710,39 +1129,76 @@ class GameRenderer(
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, 0)
     }
 
+    /**
+     * Cue held by the active player: the butt sits on the grip point (over the
+     * rail), the tip on the ball, and the whole cue travels with the strike clip
+     * so the pull-back and follow-through read on screen.
+     */
     private fun cueTransform(model: FloatArray) {
         val cue = world.cueBall()
-        val directionX = cos(world.aimAngle)
-        val directionZ = sin(world.aimAngle)
-        val offset = cueHalfLength + Table.BALL_RADIUS + 0.02
-        val centerX = cue.x - directionX * offset
-        val centerZ = cue.z - directionZ * offset
-        val theta = atan2(directionZ, -directionX)
+        val cueX = if (cueFrozen) frozenCueX.toDouble() else cue.x
+        val cueZ = if (cueFrozen) frozenCueZ.toDouble() else cue.z
+        val hand = cueGrip(
+            cueX,
+            cueZ,
+            if (cueFrozen) frozenAim else world.aimAngle
+        )
+        var handX = hand[0]
+        var handZ = hand[1]
+        val toBallX = cueX - handX
+        val toBallZ = cueZ - handZ
+        val reach = hypot(toBallX, toBallZ).coerceAtLeast(0.1)
+        val ux = (toBallX / reach).toFloat()
+        val uz = (toBallZ / reach).toFloat()
 
-        val railDistance = railDistance(cue.x, cue.z, -directionX, -directionZ)
-        val clearance = Table.RAIL_TOP + CUE_RADIUS.toDouble() - Table.BALL_Y
-        val pitch = if (railDistance <= cueHalfLength.toDouble() * 2.0) {
-            kotlin.math.atan(clearance / railDistance.coerceAtLeast(0.05))
-                .coerceIn(0.0, Math.toRadians(15.0))
-        } else {
-            0.0
+        val active = if (activeIsHuman) humanPlayer else robotPlayer
+        var pull = 0f
+        if (active != null && active.currentClip == "strike") {
+            val progress = active.clipProgress
+            pull = when {
+                progress < 0.22f -> 0.16f * (progress / 0.22f)
+                progress < 0.55f -> 0.16f - 0.22f * ((progress - 0.22f) / 0.33f)
+                else -> 0f
+            }
         }
-        val lift = (sin(pitch) * cueHalfLength.toDouble()).toFloat()
+        handX -= ux * pull
+        handZ -= uz * pull
+        activeHandX = handX
+        activeHandZ = handZ
+
+        // The tip stops just outside the cue ball, never inside it, and the
+        // butt rides above the rail so the cue does not cut through the wood.
+        val margin = Table.BALL_RADIUS.toFloat() + 0.003f
+        val tipX = (cueX - ux * margin).toFloat()
+        val tipZ = (cueZ - uz * margin).toFloat()
+        // The grip sits 20 cm from the butt, as in a real stance.
+        val buttX = handX - ux * 0.20f
+        val buttZ = handZ - uz * 0.20f
+        val tipY = Table.BALL_Y.toFloat()
+        val buttY = (Table.RAIL_TOP + 0.08).toFloat()
+        val dirX = tipX - buttX
+        val dirY = tipY - buttY
+        val dirZ = tipZ - buttZ
+        val span = sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ).coerceAtLeast(0.05f)
+        val scale = (span / (2f * cueHalfLength)).coerceIn(0.7f, 1.8f)
+        val centerX = buttX + dirX * 0.5f
+        val centerY = buttY + dirY * 0.5f
+        val centerZ = buttZ + dirZ * 0.5f
+        val theta = Math.atan2(-dirZ.toDouble(), dirX.toDouble()).toFloat()
+        val pitch = Math.asin((dirY / span).toDouble().coerceIn(-1.0, 1.0)).toFloat()
 
         Matrix.setIdentityM(model, 0)
-        Matrix.translateM(
-            model, 0,
-            centerX.toFloat(), (Table.BALL_Y + lift).toFloat(), centerZ.toFloat()
-        )
-        Matrix.rotateM(model, 0, Math.toDegrees(theta).toFloat(), 0f, 1f, 0f)
-        Matrix.rotateM(model, 0, Math.toDegrees(pitch).toFloat(), 0f, 0f, 1f)
+        Matrix.translateM(model, 0, centerX, centerY, centerZ)
+        Matrix.rotateM(model, 0, Math.toDegrees(theta.toDouble()).toFloat(), 0f, 1f, 0f)
+        Matrix.rotateM(model, 0, Math.toDegrees(pitch.toDouble()).toFloat(), 0f, 0f, 1f)
+        Matrix.scaleM(model, 0, scale, 1f, 1f)
     }
 
     private fun drawCue(model: FloatArray) {
         val mesh = cueMesh ?: return
         val cue = world.cueBall()
-        if (!cue.active || world.winner >= 0 || world.moving) return
-        if (!world.canShoot(localPlayer)) return
+        if (!cue.active || world.winner >= 0) return
+        if (!world.moving && !world.canShoot(localPlayer)) return
         cueTransform(model)
         val mvp = FloatArray(16)
         Matrix.multiplyMM(mvp, 0, viewProjection, 0, model, 0)
@@ -776,6 +1232,7 @@ class GameRenderer(
             return
         }
         GLES30.glUseProgram(sceneProgram)
+        GLES30.glUniform1f(uSkinned, 0f)
         GLES30.glUniformMatrix4fv(uMvp, 1, false, mvp, 0)
         GLES30.glUniformMatrix4fv(uModel, 1, false, model, 0)
         GLES30.glUniform1f(uUseColor, if (useVertexColor) 0f else 1f)
@@ -1199,6 +1656,8 @@ class GameRenderer(
         private const val TAG = "GameRenderer"
         private const val AIM_SENSITIVITY_DP = 0.0032f
         private const val CUE_RADIUS = 0.016
+        /** Distance from the character origin to its hands in the aim pose. */
+        private const val HAND_FORWARD = 0.46f
         private const val TEXTURE_MAX_ANISOTROPY = 0x84FE
         private const val MAX_TEXTURE_MAX_ANISOTROPY = 0x84FF
         private const val SRGB8_ALPHA8 = 0x8C43

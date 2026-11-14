@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0.0",
+  "notes": "export the human player rig with skin and clips",
+  "ops": [
+    {
+      "op": "export",
+      "path": "artifacts/player_human.glb",
+      "format": "glb",
+      "apply_modifiers": false
+    }
+  ]
+}

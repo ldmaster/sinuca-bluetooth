@@ -17,8 +17,12 @@ layout(location = 1) in vec3 aNormal;
 layout(location = 2) in vec3 aColor;
 layout(location = 3) in vec2 aUv;
 layout(location = 4) in vec3 aMaterial;
+layout(location = 5) in vec4 aJoints;
+layout(location = 6) in vec4 aWeights;
 uniform mat4 uMVP;
 uniform mat4 uModel;
+uniform mat4 uBones[24];
+uniform float uSkinned;
 out vec3 vNormal;
 out vec3 vColor;
 out vec3 vLocal;
@@ -26,14 +30,24 @@ out vec3 vWorld;
 out vec2 vUv;
 out vec3 vMaterial;
 void main() {
-    vec4 world = uModel * vec4(aPos, 1.0);
+    vec4 localPosition = vec4(aPos, 1.0);
+    vec3 localNormal = aNormal;
+    if (uSkinned > 0.5) {
+        mat4 skin = aWeights.x * uBones[int(aJoints.x)]
+                  + aWeights.y * uBones[int(aJoints.y)]
+                  + aWeights.z * uBones[int(aJoints.z)]
+                  + aWeights.w * uBones[int(aJoints.w)];
+        localPosition = skin * localPosition;
+        localNormal = mat3(skin) * localNormal;
+    }
+    vec4 world = uModel * localPosition;
     vWorld = world.xyz;
-    vNormal = mat3(uModel) * aNormal;
+    vNormal = mat3(uModel) * localNormal;
     vColor = aColor;
     vLocal = aPos;
     vUv = aUv;
     vMaterial = aMaterial;
-    gl_Position = uMVP * vec4(aPos, 1.0);
+    gl_Position = uMVP * localPosition;
 }
 """
 
@@ -393,9 +407,21 @@ void main() {
 
     const val DEPTH_VERTEX = """#version 300 es
 layout(location = 0) in vec3 aPos;
+layout(location = 5) in vec4 aJoints;
+layout(location = 6) in vec4 aWeights;
 uniform mat4 uMVP;
+uniform mat4 uBones[24];
+uniform float uSkinned;
 void main() {
-    gl_Position = uMVP * vec4(aPos, 1.0);
+    vec4 local = vec4(aPos, 1.0);
+    if (uSkinned > 0.5) {
+        mat4 skin = aWeights.x * uBones[int(aJoints.x)]
+                  + aWeights.y * uBones[int(aJoints.y)]
+                  + aWeights.z * uBones[int(aJoints.z)]
+                  + aWeights.w * uBones[int(aJoints.w)];
+        local = skin * local;
+    }
+    gl_Position = uMVP * local;
 }
 """
 

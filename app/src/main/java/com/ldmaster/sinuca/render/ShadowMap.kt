@@ -24,7 +24,11 @@ class ShadowMap {
     private var framebuffer = 0
     private var program = 0
     private var uMvp = 0
+    private var uBones = 0
+    private var uSkinned = 0
     private var previousViewport = IntArray(4)
+
+    val programId: Int get() = program
 
     fun create(desiredSize: Int, lightDirection: FloatArray, halfWidth: Float, halfHeight: Float) {
         release()
@@ -32,6 +36,8 @@ class ShadowMap {
         program = Gl.link(Shaders.DEPTH_VERTEX, Shaders.DEPTH_FRAGMENT)
         if (program == 0) return
         uMvp = GLES30.glGetUniformLocation(program, "uMVP")
+        uBones = GLES30.glGetUniformLocation(program, "uBones")
+        uSkinned = GLES30.glGetUniformLocation(program, "uSkinned")
 
         val ids = IntArray(1)
         GLES30.glGenTextures(1, ids, 0)
@@ -113,6 +119,15 @@ class ShadowMap {
 
     fun setMvp(mvp: FloatArray) {
         GLES30.glUniformMatrix4fv(uMvp, 1, false, mvp, 0)
+    }
+
+    fun setSkinned(model: SkinnedModel) {
+        GLES30.glUniform1f(uSkinned, 1f)
+        model.uploadBones(program, uBones)
+    }
+
+    fun clearSkinned() {
+        GLES30.glUniform1f(uSkinned, 0f)
     }
 
     fun end() {

@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0.0",
+  "notes": "export the robot player rig with skin and clips",
+  "ops": [
+    {
+      "op": "export",
+      "path": "artifacts/player_robot.glb",
+      "format": "glb",
+      "apply_modifiers": false
+    }
+  ]
+}

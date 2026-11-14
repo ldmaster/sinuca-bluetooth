@@ -1,5 +1,5 @@
 {
-  "digest": "86ec5c65d73511778ca9247507afbee0eb4c4fbc06d38e60a5562d1e23ebd705",
+  "digest": "ef1330731c241b97705eb54236603c7a15847ebc4fdd47050dbf26d765ca082b",
   "files": {
     "app/src/main/assets/models/table.glb": "759d6757bfc8da30e3d9c258a46b9a10b1c834101977cc24844a46c6206c3eba",
     "app/src/main/assets/models/table_a.glb": "759d6757bfc8da30e3d9c258a46b9a10b1c834101977cc24844a46c6206c3eba",
@@ -9,7 +9,7 @@
     "app/src/main/java/com/ldmaster/sinuca/game/TableSurface.kt": "99bcf157edc70c13e12d0a9573ca6c185ffbfb264c173feea2990a9718500d4c",
     "app/src/main/java/com/ldmaster/sinuca/game/TableTexture.kt": "3409db42a83dcc20fe0322f77fba13aaec51da63978d94c5ddbba32897eb2d9e",
     "app/src/main/java/com/ldmaster/sinuca/render/GlbLoader.kt": "73645889ac6fdf7a36d3afad62231e1ce74c5e8373a6df7a5e9a6e1885f90a27",
-    "app/src/main/java/com/ldmaster/sinuca/render/Shaders.kt": "ffb294c17fa40ba50903430101079a01f7827d0433c07cee5a5f0d60d4f76cfa"
+    "app/src/main/java/com/ldmaster/sinuca/render/Shaders.kt": "1df8c59826118ef1b7a09c6b6e8f752aaa95fb4942ca23e4bf774377060ce81b"
   },
   "previews": {
     "app/src/main/assets/previews/p1_a.jpg": "20b42644a2c0c63f4c10b7a4c4cc345881568015545b13a134518944804ac983",

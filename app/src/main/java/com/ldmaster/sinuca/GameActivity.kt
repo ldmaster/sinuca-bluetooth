@@ -162,6 +162,7 @@ class GameActivity : Activity() {
             textureQuality = textureQuality
         )
         renderer.localPlayer = localPlayer
+        renderer.aiOpponent = ai
 
         surface = GLSurfaceView(this).apply {
             setEGLContextClientVersion(3)
