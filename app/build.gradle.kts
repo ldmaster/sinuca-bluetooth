@@ -24,8 +24,8 @@ android {
         applicationId = "com.ldmaster.sinuca"
         minSdk = 26
         targetSdk = 36
-        versionCode = 28
-        versionName = "1.12.1"
+        versionCode = 29
+        versionName = "1.13.0"
     }
 
     signingConfigs {
