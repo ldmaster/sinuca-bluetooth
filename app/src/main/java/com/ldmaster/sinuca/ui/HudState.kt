@@ -14,5 +14,7 @@ data class HudState(
     val cameraMode: Int,
     val aimAngle: Float = 0f,
     val aiThinking: Boolean = false,
-    val aiLevel: String = ""
+    val aiLevel: String = "",
+    val freeCamera: Boolean = false,
+    val sensorCamera: Boolean = false
 )

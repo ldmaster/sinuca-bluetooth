@@ -151,6 +151,29 @@ class MainActivity : Activity() {
             "Pareie os dois celulares nas configurações do Android antes de jogar."
         }
         if (!hasPermissions()) requestPermissions(requiredPermissions(), REQUEST_PERMISSIONS)
+        hideSystemBars()
+    }
+
+    /**
+     * The hall is edge-to-edge: the gesture/navigation bar used to sit on top of
+     * the footer. Hiding it (and re-hiding when focus returns) keeps the layout
+     * clear; a swipe brings it back transiently.
+     */
+    private fun hideSystemBars() {
+        @Suppress("DEPRECATION")
+        window.decorView.systemUiVisibility = (
+            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
+                View.SYSTEM_UI_FLAG_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+            )
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) hideSystemBars()
     }
 
     override fun onResume() {

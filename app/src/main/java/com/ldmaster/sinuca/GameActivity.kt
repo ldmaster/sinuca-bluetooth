@@ -1,6 +1,10 @@
 package com.ldmaster.sinuca
 
 import android.app.Activity
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.opengl.GLSurfaceView
 import android.os.Bundle
 import android.os.Handler
@@ -25,6 +29,8 @@ import com.ldmaster.sinuca.render.GameRenderer
 import com.ldmaster.sinuca.ui.HallStats
 import com.ldmaster.sinuca.ui.HudState
 import com.ldmaster.sinuca.ui.HudView
+import kotlin.math.asin
+import kotlin.math.atan2
 
 class GameActivity : Activity() {
 
@@ -45,6 +51,27 @@ class GameActivity : Activity() {
     private var resultRecorded = false
     private val hallStats by lazy { HallStats(this) }
     private val aiMemory by lazy { AiMemory(PrefsMemoryStore(this)) }
+    private var sensorListenerRegistered = false
+
+    /**
+     * Absolute orientation camera: the phone's back vector drives the orbit.
+     * The first sample after enabling becomes the reference in the renderer.
+     */
+    private val rotationListener = object : SensorEventListener {
+        override fun onSensorChanged(event: SensorEvent) {
+            if (!renderer.sensorCameraActive) return
+            val matrix = FloatArray(9)
+            SensorManager.getRotationMatrixFromVector(matrix, event.values)
+            val backX = -matrix[6]
+            val backY = -matrix[7]
+            val backZ = -matrix[8]
+            val yaw = Math.toDegrees(atan2(backX.toDouble(), backZ.toDouble())).toFloat()
+            val pitch = Math.toDegrees(asin(backY.coerceIn(-1f, 1f).toDouble())).toFloat()
+            renderer.setSensorAngles(yaw, pitch)
+        }
+
+        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+    }
 
     private val sync = object : Runnable {
         override fun run() {
@@ -164,6 +191,40 @@ class GameActivity : Activity() {
                 override fun onShotParams(power: Float, strikeX: Float, strikeY: Float) {
                     renderer.setShotParams(power, strikeX, strikeY)
                 }
+
+                override fun onToggleFreeCamera() {
+                    if (renderer.sensorCameraActive) {
+                        renderer.setSensorCamera(false)
+                        setSensorListener(false)
+                    }
+                    renderer.setFreeCamera(!renderer.freeCameraActive)
+                }
+
+                override fun onToggleSensorCamera() {
+                    if (renderer.sensorCameraActive) {
+                        renderer.setSensorCamera(false)
+                        setSensorListener(false)
+                        return
+                    }
+                    if (!setSensorListener(true)) {
+                        Toast.makeText(
+                            this@GameActivity,
+                            "Este aparelho não tem sensor de orientação.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        return
+                    }
+                    renderer.setFreeCamera(false)
+                    renderer.setSensorCamera(true)
+                }
+
+                override fun onOrbit(dxPixels: Float, dyPixels: Float) {
+                    renderer.orbitBy(dxPixels, dyPixels)
+                }
+
+                override fun onCameraZoom(factor: Float) {
+                    renderer.zoomBy(factor)
+                }
             }
         )
 
@@ -246,7 +307,9 @@ class GameActivity : Activity() {
             cameraMode = renderer.cameraMode,
             aimAngle = ((Math.toDegrees(world.aimAngle) % 360.0 + 360.0) % 360.0).toFloat(),
             aiThinking = aiPlayer?.thinking == true,
-            aiLevel = if (ai) aiLevel.label else ""
+            aiLevel = if (ai) aiLevel.label else "",
+            freeCamera = renderer.freeCameraActive,
+            sensorCamera = renderer.sensorCameraActive
         )
     }
 
@@ -261,6 +324,28 @@ class GameActivity : Activity() {
         } else {
             hallStats.recordLoss()
         }
+    }
+
+    /** Registers or releases the rotation listener; false when there is no sensor. */
+    private fun setSensorListener(enabled: Boolean): Boolean {
+        val manager = getSystemService(SENSOR_SERVICE) as? SensorManager ?: return false
+        if (enabled) {
+            if (sensorListenerRegistered) return true
+            val sensor = manager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
+                ?: return false
+            manager.registerListener(
+                rotationListener,
+                sensor,
+                SensorManager.SENSOR_DELAY_GAME
+            )
+            sensorListenerRegistered = true
+            return true
+        }
+        if (sensorListenerRegistered) {
+            manager.unregisterListener(rotationListener)
+            sensorListenerRegistered = false
+        }
+        return true
     }
 
     private fun closeAndFinish() {
@@ -280,11 +365,13 @@ class GameActivity : Activity() {
     override fun onResume() {
         super.onResume()
         surface.onResume()
+        if (renderer.sensorCameraActive) setSensorListener(true)
         hideSystemBars()
     }
 
     override fun onPause() {
         super.onPause()
+        setSensorListener(false)
         recordResult()
         surface.onPause()
     }

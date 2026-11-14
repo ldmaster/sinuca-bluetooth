@@ -28,6 +28,10 @@ class HudView(
         fun onCamera()
         fun onTrajectoryToggle(enabled: Boolean)
         fun onShotParams(power: Float, strikeX: Float, strikeY: Float)
+        fun onToggleFreeCamera()
+        fun onToggleSensorCamera()
+        fun onOrbit(dxPixels: Float, dyPixels: Float)
+        fun onCameraZoom(factor: Float)
     }
 
     var power: Float = 0.55f
@@ -64,6 +68,12 @@ class HudView(
 
     private var gesture = GESTURE_NONE
     private var lastTouchX = 0f
+    private var lastTouchY = 0f
+    private var lastPinch = 0f
+    private var freeCameraCenterX = 0f
+    private var freeCameraCenterY = 0f
+    private var sensorCameraCenterX = 0f
+    private var sensorCameraCenterY = 0f
     private var nudgeLeftX = 0f
     private var nudgeLeftY = 0f
     private var nudgeRightX = 0f
@@ -90,6 +100,7 @@ class HudView(
 
         drawPotted(canvas, state)
         drawStatus(canvas, state, w)
+        drawCameraModes(canvas, state)
         drawCorners(canvas, state, w)
 
         if (!state.started) {
@@ -194,6 +205,41 @@ class HudView(
             textPaint.color = Color.parseColor("#99C7D2DE")
             canvas.drawText("MIRA ${state.aimAngle.toInt()}°", w / 2f, dp(55f), textPaint)
         }
+    }
+
+    private fun drawCameraModes(canvas: Canvas, state: HudState) {
+        val pillWidth = dp(58f)
+        val pillHeight = dp(20f)
+        val left = dp(12f)
+        freeCameraCenterX = left + pillWidth / 2f
+        freeCameraCenterY = dp(58f)
+        sensorCameraCenterX = freeCameraCenterX
+        sensorCameraCenterY = dp(58f) + pillHeight + dp(6f)
+        cameraPill(
+            canvas, left, dp(58f), pillWidth, pillHeight,
+            "LIVRE", state.freeCamera
+        )
+        cameraPill(
+            canvas, left, dp(58f) + pillHeight + dp(6f), pillWidth, pillHeight,
+            "GIRO", state.sensorCamera
+        )
+    }
+
+    private fun cameraPill(
+        canvas: Canvas,
+        x: Float,
+        y: Float,
+        width: Float,
+        height: Float,
+        label: String,
+        active: Boolean
+    ) {
+        fill.color = Color.parseColor(if (active) "#665B2E8B" else "#66000000")
+        canvas.drawRoundRect(x, y, x + width, y + height, dp(8f), dp(8f), fill)
+        textPaint.textAlign = Paint.Align.CENTER
+        textPaint.textSize = dp(8f)
+        textPaint.color = Color.parseColor(if (active) "#F2F6FA" else "#B3C7D2DE")
+        canvas.drawText(label, x + width / 2f, y + height / 2f + dp(3f), textPaint)
     }
 
     private fun drawAimNudge(canvas: Canvas, state: HudState, w: Float, h: Float) {
@@ -452,6 +498,14 @@ class HudView(
                     actions.onExit()
                     return true
                 }
+                if (near(x, y, freeCameraCenterX, freeCameraCenterY, dp(16f))) {
+                    actions.onToggleFreeCamera()
+                    return true
+                }
+                if (near(x, y, sensorCameraCenterX, sensorCameraCenterY, dp(16f))) {
+                    actions.onToggleSensorCamera()
+                    return true
+                }
                 if (!state.started) return true
 
                 if (near(x, y, nudgeLeftX, nudgeLeftY, dp(20f))) {
@@ -477,22 +531,50 @@ class HudView(
                     return true
                 }
                 if (y > dp(48f)) {
+                    if (state.freeCamera || state.sensorCamera) {
+                        gesture = GESTURE_ORBIT
+                        lastTouchX = x
+                        lastTouchY = y
+                        lastPinch = 0f
+                        return true
+                    }
                     gesture = GESTURE_AIM
                     lastTouchX = x
                 }
             }
             MotionEvent.ACTION_MOVE -> {
-                when (gesture) {
-                    GESTURE_AIM -> {
-                        val delta = x - lastTouchX
-                        lastTouchX = x
-                        if (abs(delta) > 0.01f) actions.onAimDelta(delta / density)
+                if ((state.freeCamera || state.sensorCamera) && event.pointerCount >= 2) {
+                    val distance = hypot(
+                        event.getX(0) - event.getX(1),
+                        event.getY(0) - event.getY(1)
+                    )
+                    if (lastPinch > 0f && distance > 1f) {
+                        actions.onCameraZoom(distance / lastPinch)
                     }
-                    GESTURE_POWER -> updatePower(y)
-                    GESTURE_SPIN -> updateSpin(x, y)
+                    lastPinch = distance
+                } else {
+                    when (gesture) {
+                        GESTURE_ORBIT -> {
+                            val dx = x - lastTouchX
+                            val dy = y - lastTouchY
+                            lastTouchX = x
+                            lastTouchY = y
+                            if (abs(dx) + abs(dy) > 0.5f) {
+                                actions.onOrbit(dx / density, dy / density)
+                            }
+                        }
+                        GESTURE_AIM -> {
+                            val delta = x - lastTouchX
+                            lastTouchX = x
+                            if (abs(delta) > 0.01f) actions.onAimDelta(delta / density)
+                        }
+                        GESTURE_POWER -> updatePower(y)
+                        GESTURE_SPIN -> updateSpin(x, y)
+                    }
                 }
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                lastPinch = 0f
                 gesture = GESTURE_NONE
                 stopNudge()
             }
@@ -541,5 +623,6 @@ class HudView(
         private const val GESTURE_AIM = 1
         private const val GESTURE_POWER = 2
         private const val GESTURE_SPIN = 3
+        private const val GESTURE_ORBIT = 4
     }
 }

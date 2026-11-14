@@ -113,6 +113,18 @@ class GameRenderer(
     private val shadowMap = ShadowMap()
     private val post = PostFx()
     private val missingUniforms = LinkedHashSet<String>()
+    private val cameraLock = Any()
+    @Volatile
+    private var freeCamera = false
+    @Volatile
+    private var sensorCamera = false
+    private var orbitYaw = 0f
+    private var orbitPitch = 38f
+    private var orbitDistance = 3.4f
+    private var sensorRefYaw = Float.NaN
+    private var sensorRefPitch = 0f
+    private var sensorRefOrbitYaw = 0f
+    private var sensorRefOrbitPitch = 38f
     private var softwareRenderer = false
     private var samples = 1
     private var shadowSize = 2048
@@ -259,8 +271,105 @@ class GameRenderer(
         updateCamera()
     }
 
+    val freeCameraActive: Boolean get() = freeCamera
+    val sensorCameraActive: Boolean get() = sensorCamera
+
+    /** Toggle the orbiting free camera; it replaces the fixed presets while on. */
+    fun setFreeCamera(enabled: Boolean) {
+        synchronized(cameraLock) {
+            freeCamera = enabled
+            if (enabled) {
+                sensorCamera = false
+                orbitYaw = 0f
+                orbitPitch = 38f
+                orbitDistance = 3.4f
+            }
+            updateCameraLocked()
+        }
+    }
+
+    /** Toggle the device-orientation camera, anchored to the current view. */
+    fun setSensorCamera(enabled: Boolean) {
+        synchronized(cameraLock) {
+            sensorCamera = enabled
+            if (enabled) {
+                freeCamera = false
+                sensorRefYaw = Float.NaN
+                orbitYaw = 0f
+                orbitPitch = 38f
+                orbitDistance = 3.4f
+            }
+            updateCameraLocked()
+        }
+    }
+
+    fun orbitBy(dxPixels: Float, dyPixels: Float) {
+        synchronized(cameraLock) {
+            if (!freeCamera && !sensorCamera) return
+            orbitYaw = (orbitYaw + dxPixels * 0.25f) % 360f
+            orbitPitch = (orbitPitch + dyPixels * 0.18f).coerceIn(6f, 82f)
+            updateCameraLocked()
+        }
+    }
+
+    fun zoomBy(factor: Float) {
+        if (factor <= 0f) return
+        synchronized(cameraLock) {
+            if (!freeCamera && !sensorCamera) return
+            orbitDistance = (orbitDistance / factor).coerceIn(1.8f, 6.5f)
+            updateCameraLocked()
+        }
+    }
+
+    /**
+     * Absolute device heading, in degrees, from the rotation vector. The first
+     * sample becomes the reference so enabling the mode never jumps.
+     */
+    fun setSensorAngles(yawDegrees: Float, pitchDegrees: Float) {
+        synchronized(cameraLock) {
+            if (!sensorCamera) return
+            if (sensorRefYaw.isNaN()) {
+                sensorRefYaw = yawDegrees
+                sensorRefPitch = pitchDegrees
+                sensorRefOrbitYaw = orbitYaw
+                sensorRefOrbitPitch = orbitPitch
+            }
+            val deltaYaw = shortestAngle(yawDegrees - sensorRefYaw)
+            val deltaPitch = pitchDegrees - sensorRefPitch
+            orbitYaw = (sensorRefOrbitYaw + deltaYaw) % 360f
+            orbitPitch = (sensorRefOrbitPitch - deltaPitch).coerceIn(6f, 82f)
+            updateCameraLocked()
+        }
+    }
+
+    private fun shortestAngle(degrees: Float): Float {
+        var value = degrees % 360f
+        if (value > 180f) value -= 360f
+        if (value < -180f) value += 360f
+        return value
+    }
+
     private fun updateCamera() {
+        synchronized(cameraLock) { updateCameraLocked() }
+    }
+
+    private fun updateCameraLocked() {
         val aspect = width.toFloat() / height.toFloat()
+        if (freeCamera || sensorCamera) {
+            val yawRadians = Math.toRadians(orbitYaw.toDouble())
+            val pitchRadians = Math.toRadians(orbitPitch.toDouble())
+            val horizontal = cos(pitchRadians) * orbitDistance
+            val ex = (sin(yawRadians) * horizontal).toFloat()
+            val ey = (0.55 + sin(pitchRadians) * orbitDistance).toFloat()
+            val ez = (cos(yawRadians) * horizontal).toFloat()
+            Matrix.perspectiveM(projection, 0, 46f, aspect, 0.1f, 40f)
+            eye[0] = ex
+            eye[1] = ey
+            eye[2] = ez
+            Matrix.setLookAtM(view, 0, ex, ey, ez, 0f, 0.72f, 0f, 0f, 1f, 0f)
+            Matrix.multiplyMM(viewProjection, 0, projection, 0, view, 0)
+            return
+        }
         val side = if (mirrored) 1f else -1f
         val fieldOfView: Float
         val eyeY: Float
