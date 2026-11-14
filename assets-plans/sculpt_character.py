@@ -383,8 +383,8 @@ def pose_aim(
     armature,
     wrist_left=None,
     wrist_right=None,
-    spine_lean=32.0,
-    chest_lean=22.0
+    spine_lean=38.0,
+    chest_lean=26.0
 ):
     """Analytic IK: lean the torso, then place both hands on the cue."""
     bones = armature.pose.bones
@@ -399,8 +399,8 @@ def pose_aim(
         aim_bone(bone, bone.head.copy(), direction)
         bpy.context.view_layer.update()
 
-    left_wrist = Vector(wrist_left) if wrist_left else Vector((-0.10, -0.62, 0.84))
-    right_wrist = Vector(wrist_right) if wrist_right else Vector((0.10, -0.34, 0.86))
+    left_wrist = Vector(wrist_left) if wrist_left else Vector((-0.06, -0.62, 0.84))
+    right_wrist = Vector(wrist_right) if wrist_right else Vector((0.02, -0.34, 0.86))
 
     for suffix, wrist, pole in (
         ("L", left_wrist, Vector((-0.8, 0.2, -0.4))),
@@ -469,15 +469,15 @@ def aim_pose(armature, frame):
 
 def strike_pose(armature, frame):
     # The bridge hand (L) stays planted; only the grip hand (R) strokes.
-    bridge = (-0.10, -0.62, 0.84)
+    bridge = (-0.06, -0.62, 0.84)
     if frame < 6:
-        pose_aim(armature, wrist_left=bridge, wrist_right=(0.10, -0.34, 0.86))
+        pose_aim(armature, wrist_left=bridge, wrist_right=(0.02, -0.34, 0.86))
     elif frame < 10:
-        pose_aim(armature, wrist_left=bridge, wrist_right=(0.10, -0.20, 0.89))
+        pose_aim(armature, wrist_left=bridge, wrist_right=(0.02, -0.20, 0.89))
     elif frame < 14:
-        pose_aim(armature, wrist_left=bridge, wrist_right=(0.10, -0.44, 0.85))
+        pose_aim(armature, wrist_left=bridge, wrist_right=(0.02, -0.44, 0.85))
     else:
-        pose_aim(armature, wrist_left=bridge, wrist_right=(0.10, -0.50, 0.84))
+        pose_aim(armature, wrist_left=bridge, wrist_right=(0.02, -0.50, 0.84))
 
 
 def celebrate_pose(armature, frame):

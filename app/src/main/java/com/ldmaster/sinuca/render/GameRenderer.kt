@@ -667,13 +667,13 @@ class GameRenderer(
             if (potted > 0 && model != null) {
                 model.setClip(
                     if (potted >= 2) "celebrate_big" else "celebrate",
-                    loop = false
+                    loop = true
                 )
                 celebrationModel = model
                 celebrationUntil = now + if (potted >= 2) {
-                    1_600_000_000L
+                    2_800_000_000L
                 } else {
-                    1_200_000_000L
+                    2_200_000_000L
                 }
             }
         }
@@ -1657,7 +1657,7 @@ class GameRenderer(
         private const val AIM_SENSITIVITY_DP = 0.0032f
         private const val CUE_RADIUS = 0.016
         /** Distance from the character origin to its hands in the aim pose. */
-        private const val HAND_FORWARD = 0.46f
+        private const val HAND_FORWARD = 0.34f
         private const val TEXTURE_MAX_ANISOTROPY = 0x84FE
         private const val MAX_TEXTURE_MAX_ANISOTROPY = 0x84FF
         private const val SRGB8_ALPHA8 = 0x8C43
