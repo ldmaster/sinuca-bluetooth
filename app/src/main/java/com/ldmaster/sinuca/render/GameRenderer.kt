@@ -82,24 +82,12 @@ class GameRenderer(
     private var floorMesh: GpuMesh? = null
     private var backdropMesh: GpuMesh? = null
     private var detailTexture = 0
-    private var humanPlayer: SkinnedModel? = null
-    private var robotPlayer: SkinnedModel? = null
     private var uBones = 0
     private var uSkinned = 0
-    private val humanMatrix = FloatArray(16)
-    private val robotMatrix = FloatArray(16)
-    private var humanVisible = false
-    private var robotVisible = false
-    private var humanActive = false
-    private var robotActive = false
-    private var activeHandX = 0f
-    private var activeHandZ = 0f
-    private var activeIsHuman = true
-    private var celebrationModel: SkinnedModel? = null
-    private var celebrationUntil = 0L
     private var pottedAtShot = 0
     private var shotByPlayer = 0
     private var wasMoving = false
+    private val restCue = FloatArray(6)
 
     private class Spectator {
         val pos = floatArrayOf(0f, 0f)
@@ -111,8 +99,24 @@ class GameRenderer(
         var initialized = false
     }
 
-    private val humanSpot = Spectator()
-    private val robotSpot = Spectator()
+    /**
+     * One player in the scene: its skinned model, where it stands, the cue it
+     * carries and the reaction clip currently playing.
+     */
+    private class Character {
+        var model: SkinnedModel? = null
+        val spot = Spectator()
+        val matrix = FloatArray(16)
+        val shotButt = floatArrayOf(0f, 0f, 0f)
+        val shotTip = floatArrayOf(0f, 0f, 0f)
+        var visible = false
+        var active = false
+        var cueMix = 0f
+        var reactionUntil = 0L
+    }
+
+    private val humanChar = Character()
+    private val opponentChar = Character()
     private var watchTurn = -1
     private var watchReady = false
     private var watchX = 0f
@@ -122,6 +126,7 @@ class GameRenderer(
     private var frozenCueZ = 0f
     private var frozenAim = 0.0
     private var lineBuffer = 0
+    private var lineVertices: java.nio.FloatBuffer? = null
     private var copyProgram = 0
     private var copyQuad = 0
     private var uCopyImage = 0
@@ -222,12 +227,18 @@ class GameRenderer(
         backdropMesh = GpuMesh(backdrop())
         for (number in 0..15) ballTextures[number] = createBallTexture(number)
         if (textureQuality != TextureQuality.PROCEDURAL) detailTexture = loadDetailTexture()
-        humanPlayer = runCatching {
+        humanChar.model = runCatching {
             SkinnedModel(context, "models/player_human.glb")
         }.getOrNull()
-        robotPlayer = runCatching {
-            SkinnedModel(context, "models/player_robot.glb")
-        }.getOrNull()
+        opponentChar.model = when {
+            aiOpponent -> runCatching {
+                SkinnedModel(context, "models/player_robot.glb")
+            }.getOrNull()
+            localPlayer >= 0 -> runCatching {
+                SkinnedModel(context, "models/player_human.glb")
+            }.getOrNull()
+            else -> null
+        }
 
         val ids = IntArray(1)
         GLES30.glGenBuffers(1, ids, 0)
@@ -546,7 +557,6 @@ class GameRenderer(
             )
         }
 
-        drawCue(model)
         drawCharacters()
 
         if (sceneProgram != 0) {
@@ -593,19 +603,14 @@ class GameRenderer(
             sphereMesh?.draw()
         }
         drawCueShadow(model)
-        drawCharacterShadow(humanPlayer, humanVisible, humanMatrix, model, mvp)
-        drawCharacterShadow(robotPlayer, robotVisible, robotMatrix, model, mvp)
+        drawCharacterShadow(humanChar, mvp)
+        drawCharacterShadow(opponentChar, mvp)
     }
 
-    private fun drawCharacterShadow(
-        skinned: SkinnedModel?,
-        visible: Boolean,
-        matrix: FloatArray,
-        model: FloatArray,
-        mvp: FloatArray
-    ) {
-        if (skinned == null || !visible || !skinned.isReady) return
-        Matrix.multiplyMM(mvp, 0, shadowMap.matrix, 0, matrix, 0)
+    private fun drawCharacterShadow(char: Character, mvp: FloatArray) {
+        val skinned = char.model ?: return
+        if (!char.visible || !skinned.isReady) return
+        Matrix.multiplyMM(mvp, 0, shadowMap.matrix, 0, char.matrix, 0)
         shadowMap.setMvp(mvp)
         shadowMap.setSkinned(skinned)
         for (primitive in skinned.primitivesList) {
@@ -616,14 +621,14 @@ class GameRenderer(
 
     private fun drawCueShadow(model: FloatArray) {
         val mesh = cueMesh ?: return
-        val cue = world.cueBall()
-        if (!cue.active || world.winner >= 0) return
-        if (!world.moving && !world.canShoot(localPlayer)) return
-        cueTransform(model)
         val mvp = FloatArray(16)
-        Matrix.multiplyMM(mvp, 0, shadowMap.matrix, 0, model, 0)
-        shadowMap.setMvp(mvp)
-        mesh.draw()
+        for (char in arrayOf(humanChar, opponentChar)) {
+            if (!char.visible) continue
+            cueMatrix(char, model)
+            Matrix.multiplyMM(mvp, 0, shadowMap.matrix, 0, model, 0)
+            shadowMap.setMvp(mvp)
+            mesh.draw()
+        }
     }
 
     /**
@@ -635,8 +640,6 @@ class GameRenderer(
      */
     private fun updateCharacters(dt: Float) {
         val cue = world.cueBall()
-        val human = humanPlayer
-        val robot = if (aiOpponent) robotPlayer else null
         if (world.moving) {
             if (!cueFrozen) {
                 frozenCueX = cue.x.toFloat()
@@ -647,40 +650,22 @@ class GameRenderer(
         } else {
             cueFrozen = false
         }
-        humanVisible = human != null && cue.active && human.isReady
-        robotVisible = robot != null && cue.active && robot.isReady
-        if (!humanVisible && !robotVisible) return
+        humanChar.visible = humanChar.model?.isReady == true && cue.active
+        opponentChar.visible = opponentChar.model?.isReady == true && cue.active
+        if (!humanChar.visible && !opponentChar.visible) return
 
+        val practiceMode = localPlayer < 0
         val turn = world.turn
-        humanActive = !aiOpponent || turn == 0
-        robotActive = aiOpponent && turn == 1
-        activeIsHuman = humanActive
+        humanChar.active = practiceMode || turn == 0
+        opponentChar.active = !practiceMode && opponentChar.model != null && turn == 1
 
         val now = System.nanoTime()
         if (world.moving && !wasMoving) {
             pottedAtShot = pottedTotal()
-            shotByPlayer = if (aiOpponent && turn == 1) 1 else 0
+            shotByPlayer = if (practiceMode) 0 else turn
         }
-        if (!world.moving && wasMoving) {
-            val potted = pottedTotal() - pottedAtShot
-            val model = if (shotByPlayer == 0) human else robot
-            if (potted > 0 && model != null) {
-                model.setClip(
-                    if (potted >= 2) "celebrate_big" else "celebrate",
-                    loop = true
-                )
-                celebrationModel = model
-                celebrationUntil = now + if (potted >= 2) {
-                    2_800_000_000L
-                } else {
-                    2_200_000_000L
-                }
-            }
-        }
+        if (!world.moving && wasMoving) announceReactions(now)
         wasMoving = world.moving
-
-        val celebrating = celebrationModel != null && now < celebrationUntil
-        if (!celebrating) celebrationModel = null
 
         if (!watchReady || turn != watchTurn) {
             val hand = cueGrip(cue.x, cue.z, world.aimAngle)
@@ -691,51 +676,114 @@ class GameRenderer(
             watchReady = true
         }
 
-        if (humanVisible) {
-            if (humanActive) {
-                syncSpot(humanSpot, placeShot(humanMatrix, cue, world.aimAngle))
-            } else {
-                stepSpectator(humanSpot, humanMatrix, watchX, watchZ, dt)
-            }
+        // Place the shooter first so the other one can give way to the spot it
+        // occupies this frame.
+        if (humanChar.active) {
+            placeCharacter(humanChar, now, dt, Float.NaN, Float.NaN)
+            placeCharacter(
+                opponentChar, now, dt, humanChar.spot.pos[0], humanChar.spot.pos[1]
+            )
+        } else if (opponentChar.active) {
+            placeCharacter(opponentChar, now, dt, Float.NaN, Float.NaN)
+            placeCharacter(
+                humanChar, now, dt, opponentChar.spot.pos[0], opponentChar.spot.pos[1]
+            )
+        } else {
+            placeCharacter(humanChar, now, dt, Float.NaN, Float.NaN)
+            placeCharacter(opponentChar, now, dt, Float.NaN, Float.NaN)
         }
-        if (robotVisible) {
-            if (robotActive) {
-                syncSpot(robotSpot, placeShot(robotMatrix, cue, world.aimAngle))
-            } else {
-                stepSpectator(robotSpot, robotMatrix, watchX, watchZ, dt)
-            }
-        }
+        animateCharacter(humanChar, now, dt)
+        animateCharacter(opponentChar, now, dt)
+    }
 
-        human?.let {
-            it.update(dt)
-            if (!celebrating || celebrationModel !== it) {
-                val clip = when {
-                    humanActive && world.moving -> "strike"
-                    humanActive -> "aim"
-                    humanSpot.walking -> "walk"
-                    else -> "idle"
-                }
-                if (it.currentClip != clip) it.setClip(clip, loop = clip != "strike")
-            }
+    /**
+     * The shooter stands behind the cue ball and the other player walks around
+     * the perimeter. The cue itself changes between the upright carry pose and
+     * the shot pose over [CUE_SWAP_SECONDS] instead of popping into place.
+     */
+    private fun placeCharacter(
+        char: Character,
+        now: Long,
+        dt: Float,
+        avoidX: Float,
+        avoidZ: Float
+    ) {
+        if (char.model == null || !char.visible) return
+        val step = dt / CUE_SWAP_SECONDS
+        if (char.active) {
+            syncSpot(char.spot, placeShot(char.matrix, world.cueBall(), world.aimAngle))
+            shotCueEnds(char)
+        } else {
+            stepSpectator(char.spot, char.matrix, watchX, watchZ, dt, avoidX, avoidZ)
         }
-        robot?.let {
-            it.update(dt)
-            if (!celebrating || celebrationModel !== it) {
-                val clip = when {
-                    robotActive && world.moving -> "strike"
-                    robotActive -> "aim"
-                    robotSpot.walking -> "walk"
-                    else -> "idle"
-                }
-                if (it.currentClip != clip) it.setClip(clip, loop = clip != "strike")
+        // A reacting player is not on the shot, so the cue goes back upright
+        // instead of hanging over the table through the celebration.
+        val holding = char.active && now >= char.reactionUntil
+        char.cueMix = moveToward(char.cueMix, if (holding) 1f else 0f, step)
+    }
+
+    private fun animateCharacter(char: Character, now: Long, dt: Float) {
+        val model = char.model ?: return
+        if (!char.visible) return
+        model.update(dt)
+        if (world.moving && char.active) char.reactionUntil = 0L
+        if (now < char.reactionUntil) return
+        val clip = when {
+            char.active && world.moving -> "strike"
+            char.active -> "aim"
+            char.spot.walking -> "walk"
+            else -> "idle"
+        }
+        if (model.currentClip != clip) model.setClip(clip, loop = clip != "strike")
+    }
+
+    /**
+     * Called once the balls settle. One ball draws the small celebration, two
+     * or more the big one, and the opponent applauds a big break. A potted cue
+     * ball or an empty shot reads as a dejected slump instead.
+     */
+    private fun announceReactions(now: Long) {
+        val potted = pottedTotal() - pottedAtShot
+        val shooter = if (shotByPlayer == 1) opponentChar else humanChar
+        val other = if (shooter === humanChar) opponentChar else humanChar
+        when {
+            world.cueFouled -> {
+                react(shooter, "dejected", 2_000_000_000L, now)
+                Log.d(TAG, "reaction: dejected (cue potted) shot by $shotByPlayer")
+            }
+            potted >= 2 -> {
+                react(shooter, "celebrate_big", 2_800_000_000L, now)
+                react(other, "applaud", 2_200_000_000L, now)
+                Log.d(TAG, "reaction: celebrate_big shot by $shotByPlayer ($potted balls)")
+            }
+            potted == 1 -> {
+                react(shooter, "celebrate", 2_200_000_000L, now)
+                Log.d(TAG, "reaction: celebrate shot by $shotByPlayer (1 ball)")
+            }
+            else -> {
+                react(shooter, "dejected", 2_000_000_000L, now)
+                Log.d(TAG, "reaction: dejected shot by $shotByPlayer (no ball)")
             }
         }
     }
 
+    private fun react(char: Character, clip: String, duration: Long, now: Long) {
+        val model = char.model ?: return
+        if (!model.clipNames.any { it.equals(clip, ignoreCase = true) }) {
+            Log.w(TAG, "clip $clip missing from the character model")
+            return
+        }
+        model.setClip(clip, loop = true)
+        char.reactionUntil = now + duration
+    }
+
+    private fun moveToward(value: Float, target: Float, step: Float): Float =
+        if (value < target) minOf(value + step, target) else maxOf(value - step, target)
+
     /** The spectator picks the side of the table farthest from the shot. */
     private fun spectatorTarget(handX: Float, handZ: Float): FloatArray {
-        val marginX = (Table.HALF_LENGTH + 1.0).toFloat()
-        val marginZ = (Table.HALF_WIDTH + 0.95).toFloat()
+        val marginX = (Table.HALF_LENGTH + RING_LENGTH).toFloat()
+        val marginZ = (Table.HALF_WIDTH + RING_WIDTH).toFloat()
         val candidates = arrayOf(
             floatArrayOf(0f, marginZ),
             floatArrayOf(0f, -marginZ),
@@ -760,7 +808,9 @@ class GameRenderer(
         model: FloatArray,
         targetX: Float,
         targetZ: Float,
-        dt: Float
+        dt: Float,
+        avoidX: Float,
+        avoidZ: Float
     ) {
         if (!spot.initialized) {
             spot.pos[0] = targetX
@@ -793,7 +843,18 @@ class GameRenderer(
                 spot.pos[1] += moveZ
             }
         }
-        spot.walking = spot.path.isNotEmpty()
+        // The player on the shot owns the space around the table: the waiting
+        // player gives way instead of walking through them.
+        val awayX = spot.pos[0] - avoidX
+        val awayZ = spot.pos[1] - avoidZ
+        val gap = hypot(awayX, awayZ)
+        val givingWay = avoidX.isFinite() && gap < SPECTATOR_CLEARANCE && gap > 1e-4f
+        if (givingWay) {
+            val push = (SPECTATOR_CLEARANCE - gap) * (dt * 5f).coerceAtMost(1f)
+            spot.pos[0] += awayX / gap * push
+            spot.pos[1] += awayZ / gap * push
+        }
+        spot.walking = spot.path.isNotEmpty() || givingWay
         val desiredYaw = if (spot.walking && (moveX != 0f || moveZ != 0f)) {
             Math.atan2(moveX.toDouble(), moveZ.toDouble()).toFloat()
         } else {
@@ -813,8 +874,8 @@ class GameRenderer(
         toX: Float,
         toZ: Float
     ): List<FloatArray> {
-        val rx = (Table.HALF_LENGTH + 0.95).toFloat()
-        val rz = (Table.HALF_WIDTH + 0.85).toFloat()
+        val rx = (Table.HALF_LENGTH + RING_LENGTH).toFloat()
+        val rz = (Table.HALF_WIDTH + RING_WIDTH).toFloat()
         val corners = arrayOf(
             floatArrayOf(rx, rz),
             floatArrayOf(-rx, rz),
@@ -903,8 +964,10 @@ class GameRenderer(
         val length = hypot(toBallX, toBallZ).coerceAtLeast(0.001)
         val ux = (toBallX / length).toFloat()
         val uz = (toBallZ / length).toFloat()
-        val originX = hand[0] - ux * HAND_FORWARD
-        val originZ = hand[1] - uz * HAND_FORWARD
+        // The bridge hand lands on the rail point and the body stands far
+        // enough back that the hand never reaches over the cloth.
+        val originX = hand[0] - ux * BRIDGE_FORWARD + uz * STANCE_SIDE
+        val originZ = hand[1] - uz * BRIDGE_FORWARD - ux * STANCE_SIDE
         val yaw = Math.atan2(ux.toDouble(), uz.toDouble()).toFloat()
         Matrix.setIdentityM(model, 0)
         Matrix.translateM(model, 0, originX, 0f, originZ)
@@ -920,39 +983,27 @@ class GameRenderer(
 
     private fun drawCharacters() {
         if (sceneProgram == 0) return
-        drawCharacter(humanPlayer, humanVisible, humanMatrix)
-        drawCharacter(robotPlayer, robotVisible, robotMatrix)
-        // The waiting player holds their own cue, upright beside them.
-        if (humanVisible && !humanActive) drawWaitingCue(humanSpot)
-        if (robotVisible && !robotActive) drawWaitingCue(robotSpot)
+        drawCharacter(humanChar)
+        drawCharacter(opponentChar)
+        drawHeldCue(humanChar)
+        drawHeldCue(opponentChar)
     }
 
-    private fun drawWaitingCue(spot: Spectator) {
+    /** Each player carries their own cue: upright at rest, on the ball to shoot. */
+    private fun drawHeldCue(char: Character) {
         val mesh = cueMesh ?: return
-        val rightX = Math.cos(spot.yaw.toDouble()).toFloat()
-        val rightZ = -Math.sin(spot.yaw.toDouble()).toFloat()
-        val forwardX = Math.sin(spot.yaw.toDouble()).toFloat()
-        val forwardZ = Math.cos(spot.yaw.toDouble()).toFloat()
-        val x = spot.pos[0] + rightX * 0.34f + forwardX * 0.06f
-        val z = spot.pos[1] + rightZ * 0.34f + forwardZ * 0.06f
+        if (!char.visible) return
         val model = FloatArray(16)
-        Matrix.setIdentityM(model, 0)
-        Matrix.translateM(model, 0, x, cueHalfLength, z)
-        Matrix.rotateM(
-            model, 0, Math.toDegrees(spot.yaw.toDouble()).toFloat(), 0f, 1f, 0f
-        )
-        Matrix.rotateM(model, 0, 90f, 0f, 0f, 1f)
+        cueMatrix(char, model)
         val mvp = FloatArray(16)
         Matrix.multiplyMM(mvp, 0, viewProjection, 0, model, 0)
         drawMesh(mesh, mvp, model, useVertexColor = true, color = WHITE)
     }
 
-    private fun drawCharacter(
-        skinned: SkinnedModel?,
-        visible: Boolean,
-        matrix: FloatArray
-    ) {
-        if (skinned == null || !visible || !skinned.isReady) return
+    private fun drawCharacter(char: Character) {
+        val skinned = char.model ?: return
+        if (!char.visible || !skinned.isReady) return
+        val matrix = char.matrix
         val mvp = FloatArray(16)
         Matrix.multiplyMM(mvp, 0, viewProjection, 0, matrix, 0)
         GLES30.glUseProgram(sceneProgram)
@@ -1110,9 +1161,16 @@ class GameRenderer(
         GLES30.glUseProgram(lineProgram)
         GLES30.glUniformMatrix4fv(uLineMvp, 1, false, viewProjection, 0)
         GLES30.glUniform4f(uLineColor, red, green, blue, alpha)
-        val buffer = ByteBuffer.allocateDirect(points.size * 4)
-            .order(ByteOrder.nativeOrder())
-            .asFloatBuffer()
+        // The overlay is redrawn every frame while aiming: reuse one direct
+        // buffer instead of allocating a few hundred KB per frame.
+        var buffer = lineVertices
+        if (buffer == null || buffer.capacity() < points.size) {
+            buffer = ByteBuffer.allocateDirect(points.size * 4 * 2)
+                .order(ByteOrder.nativeOrder())
+                .asFloatBuffer()
+            lineVertices = buffer
+        }
+        buffer.clear()
         buffer.put(points).position(0)
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, lineBuffer)
         GLES30.glBufferData(
@@ -1130,11 +1188,13 @@ class GameRenderer(
     }
 
     /**
-     * Cue held by the active player: the butt sits on the grip point (over the
-     * rail), the tip on the ball, and the whole cue travels with the strike clip
-     * so the pull-back and follow-through read on screen.
+     * Shot pose of the cue: the bridge hand sits on the rail point, the grip
+     * hand 27 cm behind it, the butt 20 cm behind the grip, and the tip just
+     * outside the cue ball. The cue travels with the strike clip so the
+     * pull-back and follow-through read on screen.
      */
-    private fun cueTransform(model: FloatArray) {
+    private fun shotCueEnds(char: Character) {
+        if (!char.active) return
         val cue = world.cueBall()
         val cueX = if (cueFrozen) frozenCueX.toDouble() else cue.x
         val cueZ = if (cueFrozen) frozenCueZ.toDouble() else cue.z
@@ -1143,66 +1203,130 @@ class GameRenderer(
             cueZ,
             if (cueFrozen) frozenAim else world.aimAngle
         )
-        var handX = hand[0]
-        var handZ = hand[1]
-        val toBallX = cueX - handX
-        val toBallZ = cueZ - handZ
+        val toBallX = cueX - hand[0]
+        val toBallZ = cueZ - hand[1]
         val reach = hypot(toBallX, toBallZ).coerceAtLeast(0.1)
         val ux = (toBallX / reach).toFloat()
         val uz = (toBallZ / reach).toFloat()
 
-        val active = if (activeIsHuman) humanPlayer else robotPlayer
         var pull = 0f
-        if (active != null && active.currentClip == "strike") {
-            val progress = active.clipProgress
+        val model = char.model
+        if (model != null && model.currentClip == "strike") {
+            val progress = model.clipProgress
             pull = when {
                 progress < 0.22f -> 0.16f * (progress / 0.22f)
                 progress < 0.55f -> 0.16f - 0.22f * ((progress - 0.22f) / 0.33f)
                 else -> 0f
             }
         }
-        handX -= ux * pull
-        handZ -= uz * pull
-        activeHandX = handX
-        activeHandZ = handZ
-
-        // The tip stops just outside the cue ball, never inside it, and the
-        // butt rides above the rail so the cue does not cut through the wood.
+        val gripX = hand[0] - ux * (BRIDGE_FORWARD - GRIP_FORWARD) - ux * pull
+        val gripZ = hand[1] - uz * (BRIDGE_FORWARD - GRIP_FORWARD) - uz * pull
+        char.shotButt[0] = gripX - ux * 0.20f
+        char.shotButt[1] = (Table.RAIL_TOP + 0.06).toFloat()
+        char.shotButt[2] = gripZ - uz * 0.20f
         val margin = Table.BALL_RADIUS.toFloat() + 0.003f
-        val tipX = (cueX - ux * margin).toFloat()
-        val tipZ = (cueZ - uz * margin).toFloat()
-        // The grip sits 20 cm from the butt, as in a real stance.
-        val buttX = handX - ux * 0.20f
-        val buttZ = handZ - uz * 0.20f
-        val tipY = Table.BALL_Y.toFloat()
-        val buttY = (Table.RAIL_TOP + 0.08).toFloat()
+        char.shotTip[0] = (cueX - ux * margin).toFloat()
+        char.shotTip[1] = Table.BALL_Y.toFloat()
+        char.shotTip[2] = (cueZ - uz * margin).toFloat()
+    }
+
+    /**
+     * Carry pose: the cue stands upright in the right hand. The hand point is
+     * taken from the idle clip, so the palm sits on the shaft, and the cue
+     * leans slightly outward.
+     */
+    private fun restCueEnds(char: Character, out: FloatArray) {
+        val yaw = char.spot.yaw.toDouble()
+        val sinYaw = sin(yaw).toFloat()
+        val cosYaw = cos(yaw).toFloat()
+        val leanX = CARRY_LEAN
+        val norm = sqrt(leanX * leanX + 1f)
+        val axisX = leanX / norm
+        val axisY = 1f / norm
+        val along = CARRY_HAND_Y / axisY
+        val baseX = CARRY_HAND_X - axisX * along
+        val baseZ = CARRY_HAND_Z
+        val length = 2f * cueHalfLength
+        val tipX = baseX + axisX * length
+        val tipY = axisY * length
+        out[0] = char.spot.pos[0] + baseX * cosYaw + baseZ * sinYaw
+        out[1] = 0f
+        out[2] = char.spot.pos[1] - baseX * sinYaw + baseZ * cosYaw
+        out[3] = char.spot.pos[0] + tipX * cosYaw + baseZ * sinYaw
+        out[4] = tipY
+        out[5] = char.spot.pos[1] - tipX * sinYaw + baseZ * cosYaw
+    }
+
+    /**
+     * Two-phase transition. The cue first rises from the carry pose to a ready
+     * pose directly above the shot line, then drops onto the ball. A straight
+     * lerp between the two poses sweeps the shaft through the rail near the
+     * corner, so the ready waypoint keeps it `CUE_READY_LIFT` above the wood
+     * until it is already over the cloth.
+     */
+    private fun cueMatrix(char: Character, model: FloatArray) {
+        restCueEnds(char, restCue)
+        val mix = char.cueMix.coerceIn(0f, 1f)
+        val butt = char.shotButt
+        val tip = char.shotTip
+        val readyButtY = butt[1] + CUE_READY_LIFT
+        val readyTipY = tip[1] + CUE_READY_LIFT
+        if (mix <= 0.5f) {
+            val t = mix * 2f
+            placeCue(
+                model,
+                lerp(restCue[0], butt[0], t),
+                lerp(restCue[1], readyButtY, t),
+                lerp(restCue[2], butt[2], t),
+                lerp(restCue[3], tip[0], t),
+                lerp(restCue[4], readyTipY, t),
+                lerp(restCue[5], tip[2], t)
+            )
+        } else {
+            val t = (mix - 0.5f) * 2f
+            placeCue(
+                model,
+                butt[0],
+                lerp(readyButtY, butt[1], t),
+                butt[2],
+                tip[0],
+                lerp(readyTipY, tip[1], t),
+                tip[2]
+            )
+        }
+    }
+
+    private fun lerp(from: Float, to: Float, t: Float): Float = from + (to - from) * t
+
+    private fun placeCue(
+        model: FloatArray,
+        buttX: Float,
+        buttY: Float,
+        buttZ: Float,
+        tipX: Float,
+        tipY: Float,
+        tipZ: Float
+    ) {
         val dirX = tipX - buttX
         val dirY = tipY - buttY
         val dirZ = tipZ - buttZ
         val span = sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ).coerceAtLeast(0.05f)
         val scale = (span / (2f * cueHalfLength)).coerceIn(0.7f, 1.8f)
-        val centerX = buttX + dirX * 0.5f
-        val centerY = buttY + dirY * 0.5f
-        val centerZ = buttZ + dirZ * 0.5f
         val theta = Math.atan2(-dirZ.toDouble(), dirX.toDouble()).toFloat()
         val pitch = Math.asin((dirY / span).toDouble().coerceIn(-1.0, 1.0)).toFloat()
-
         Matrix.setIdentityM(model, 0)
-        Matrix.translateM(model, 0, centerX, centerY, centerZ)
+        Matrix.translateM(
+            model, 0,
+            buttX + dirX * 0.5f,
+            buttY + dirY * 0.5f,
+            buttZ + dirZ * 0.5f
+        )
         Matrix.rotateM(model, 0, Math.toDegrees(theta.toDouble()).toFloat(), 0f, 1f, 0f)
         Matrix.rotateM(model, 0, Math.toDegrees(pitch.toDouble()).toFloat(), 0f, 0f, 1f)
+        // The cue mesh points its tip at local -X, so turn it around: otherwise
+        // the blue tip would ride at the butt and the wrap would touch the ball.
+        Matrix.rotateM(model, 0, 180f, 0f, 1f, 0f)
         Matrix.scaleM(model, 0, scale, 1f, 1f)
-    }
-
-    private fun drawCue(model: FloatArray) {
-        val mesh = cueMesh ?: return
-        val cue = world.cueBall()
-        if (!cue.active || world.winner >= 0) return
-        if (!world.moving && !world.canShoot(localPlayer)) return
-        cueTransform(model)
-        val mvp = FloatArray(16)
-        Matrix.multiplyMM(mvp, 0, viewProjection, 0, model, 0)
-        drawMesh(mesh, mvp, model, useVertexColor = true, color = WHITE)
     }
 
     private fun railDistance(x: Double, z: Double, dx: Double, dz: Double): Double {
@@ -1388,8 +1512,10 @@ class GameRenderer(
     }
 
     private fun createBallTexture(number: Int): Int {
-        val width = 1024
-        val height = 512
+        // 512x256 is still far more than a ball ever covers on screen and cuts
+        // the 16 ball textures from ~43 MB to ~11 MB of VRAM on Adreno.
+        val width = 512
+        val height = 256
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -1656,8 +1782,30 @@ class GameRenderer(
         private const val TAG = "GameRenderer"
         private const val AIM_SENSITIVITY_DP = 0.0032f
         private const val CUE_RADIUS = 0.016
-        /** Distance from the character origin to its hands in the aim pose. */
-        private const val HAND_FORWARD = 0.34f
+        /**
+         * Local forward offsets of the two hands in the aim clip, measured from
+         * the model origin. Aligning the bridge hand (0.66) with the rail keeps
+         * it out of the playing area; the grip hand sits 0.27 behind it.
+         */
+        private const val BRIDGE_FORWARD = 0.66f
+        private const val GRIP_FORWARD = 0.39f
+        /** The stance is shifted half a hand to the right so both palms sit on the cue line. */
+        private const val STANCE_SIDE = 0.05f
+        /** Seconds for the cue to travel between the carry and shot poses. */
+        private const val CUE_SWAP_SECONDS = 0.5f
+        /** Clearance above the shot line while the cue swings in over the rail. */
+        private const val CUE_READY_LIFT = 0.10f
+        /** Walk ring outside the cushions, in metres beyond the playing edge. */
+        private const val RING_LENGTH = 1.35f
+        private const val RING_WIDTH = 1.20f
+        /** The waiting player keeps this much distance from the shooter. */
+        private const val SPECTATOR_CLEARANCE = 0.95f
+        /** Right palm in the idle clip, used to hang the carried cue in the hand. */
+        private const val CARRY_HAND_X = 0.232f
+        private const val CARRY_HAND_Y = 0.905f
+        private const val CARRY_HAND_Z = 0.452f
+        /** Outward lean of the carried cue, as a fraction of its vertical rise. */
+        private const val CARRY_LEAN = 0.12f
         private const val TEXTURE_MAX_ANISOTROPY = 0x84FE
         private const val MAX_TEXTURE_MAX_ANISOTROPY = 0x84FF
         private const val SRGB8_ALPHA8 = 0x8C43

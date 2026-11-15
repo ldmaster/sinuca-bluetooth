@@ -48,6 +48,9 @@ class GameWorld(val practice: Boolean = false) {
         private set
     var message = ""
         private set
+    /** True when the last settled shot potted the cue ball. */
+    var cueFouled = false
+        private set
     var aimAngle = 0.0
 
     private val pendingPotted = ArrayList<Int>(4)
@@ -62,6 +65,7 @@ class GameWorld(val practice: Boolean = false) {
         turn = 0
         winner = -1
         moving = false
+        cueFouled = false
         message = "Jogador 1 começa."
         pendingPotted.clear()
 
@@ -127,6 +131,7 @@ class GameWorld(val practice: Boolean = false) {
         cue.shotDirX = cos(angle)
         cue.shotDirZ = sin(angle)
         moving = true
+        cueFouled = false
         pendingPotted.clear()
         return true
     }
@@ -311,6 +316,7 @@ class GameWorld(val practice: Boolean = false) {
         val shooter = turn
         val pottedSet = potted.toSet()
         val cuePotted = 0 in pottedSet
+        cueFouled = cuePotted
         if (cuePotted) respawnCue()
 
         if (8 in pottedSet) {

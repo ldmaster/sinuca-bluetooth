@@ -455,7 +455,12 @@ class AiPlanner(
         return targets.count { hasCleanLine(cue, it) }
     }
 
-    private fun hasCleanLine(cue: Ball, target: Ball): Boolean {
+    private fun hasCleanLine(cue: Ball, target: Ball): Boolean =
+        bestCleanCut(cue, target) >= 0.0
+
+    /** Best (straightest) clean pocket line, or -1 when none is open. */
+    private fun bestCleanCut(cue: Ball, target: Ball): Double {
+        var best = -1.0
         for (pocket in Table.POCKETS) {
             val dx = pocket.x - target.x
             val dz = pocket.z - target.z
@@ -473,9 +478,33 @@ class AiPlanner(
             if (cosCut < MIN_CUT_COS) continue
             if (!pathClear(cue.x, cue.z, ghostX, ghostZ, target.number)) continue
             if (!pathClear(target.x, target.z, pocket.x, pocket.z, target.number)) continue
-            return true
+            if (cosCut > best) best = cosCut
         }
-        return false
+        return best
+    }
+
+    /**
+     * How good the shooter's next visit is after the simulated shot: the
+     * straightest clean cut on any remaining own ball. This is the missing
+     * "position" term — without it the AI pots and comes back with nothing.
+     */
+    private fun nextShotQuality(player: Int): Double {
+        val cue = simulation.balls[0]
+        if (!cue.active || cue.falling) return 0.0
+        val ownGroup = if (player == 0) 1..7 else 9..15
+        var best = -1.0
+        var hasOwn = false
+        for (ball in simulation.balls) {
+            if (!ball.active || ball.falling || ball.number !in ownGroup) continue
+            hasOwn = true
+            val cut = bestCleanCut(cue, ball)
+            if (cut > best) best = cut
+        }
+        if (!hasOwn) {
+            val eight = simulation.balls[8]
+            if (eight.active && !eight.falling) best = bestCleanCut(cue, eight)
+        }
+        return if (best < 0.0) 0.0 else best
     }
 
     private fun hiddenOpponentBalls(player: Int): Int {
@@ -641,11 +670,16 @@ class AiPlanner(
         score -= (opponentBefore - opponentAfter) * 220.0
         if (simulation.turn == player) score += 350.0
         if (cue.active && !scratched) {
+            // Potting is worth more than position, but a pot that leaves the
+            // cue with no next ball is worth much less: reward the straightest
+            // clean line on the next shot and punish a cue parked on a rail.
+            val next = nextShotQuality(player)
+            if (next > 0.0) score += (next - MIN_CUT_COS) * 300.0
             val rail = minOf(
                 Table.HALF_LENGTH - abs(cue.x),
                 Table.HALF_WIDTH - abs(cue.z)
             )
-            score += rail.coerceIn(0.0, 0.30) * 800.0
+            score -= (0.12 - rail).coerceAtLeast(0.0) * 900.0
         }
         score += (1.0 - candidate.cosCut) * 80.0
         if (memory != null && level.learningWeight > 0.0) {

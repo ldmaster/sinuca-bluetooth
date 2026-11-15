@@ -63,6 +63,8 @@ class SkinnedModel(context: Context, asset: String) {
     private var current: Clip? = null
     private var clipTime = 0f
     private var loops = true
+    /** Scratch for the sampled channel value; posing must not allocate. */
+    private val poseValue = FloatArray(4)
 
     var currentClip: String = ""
         private set
@@ -340,7 +342,10 @@ class SkinnedModel(context: Context, asset: String) {
     }
 
     /** Local TRS matrix from float arrays (the glTF helper takes JSON arrays). */
-    private fun trs(t: FloatArray, r: FloatArray, s: FloatArray): FloatArray {
+    private fun trs(t: FloatArray, r: FloatArray, s: FloatArray): FloatArray =
+        FloatArray(16).also { trsInto(t, r, s, it) }
+
+    private fun trsInto(t: FloatArray, r: FloatArray, s: FloatArray, out: FloatArray) {
         var qx = r[0]
         var qy = r[1]
         var qz = r[2]
@@ -360,12 +365,22 @@ class SkinnedModel(context: Context, asset: String) {
         val wx = qw * qx
         val wy = qw * qy
         val wz = qw * qz
-        return floatArrayOf(
-            (1f - 2f * (yy + zz)) * s[0], 2f * (xy + wz) * s[0], 2f * (xz - wy) * s[0], 0f,
-            2f * (xy - wz) * s[1], (1f - 2f * (xx + zz)) * s[1], 2f * (yz + wx) * s[1], 0f,
-            2f * (xz + wy) * s[2], 2f * (yz - wx) * s[2], (1f - 2f * (xx + yy)) * s[2], 0f,
-            t[0], t[1], t[2], 1f
-        )
+        out[0] = (1f - 2f * (yy + zz)) * s[0]
+        out[1] = 2f * (xy + wz) * s[0]
+        out[2] = 2f * (xz - wy) * s[0]
+        out[3] = 0f
+        out[4] = 2f * (xy - wz) * s[1]
+        out[5] = (1f - 2f * (xx + zz)) * s[1]
+        out[6] = 2f * (yz + wx) * s[1]
+        out[7] = 0f
+        out[8] = 2f * (xz + wy) * s[2]
+        out[9] = 2f * (yz - wx) * s[2]
+        out[10] = (1f - 2f * (xx + yy)) * s[2]
+        out[11] = 0f
+        out[12] = t[0]
+        out[13] = t[1]
+        out[14] = t[2]
+        out[15] = 1f
     }
 
     private fun readVector(array: JSONArray?, target: FloatArray) {
@@ -450,36 +465,41 @@ class SkinnedModel(context: Context, asset: String) {
     private fun applyPose(time: Float) {
         val clip = current ?: return
         for (index in nodes.indices) {
+            val node = nodes[index]
             val bind = bindTrs[index]
-            nodes[index].t = bind.first.copyOf()
-            nodes[index].r = bind.second.copyOf()
-            nodes[index].s = bind.third.copyOf()
+            System.arraycopy(bind.first, 0, node.t, 0, 3)
+            System.arraycopy(bind.second, 0, node.r, 0, 4)
+            System.arraycopy(bind.third, 0, node.s, 0, 3)
         }
         for (channel in clip.channels) {
             val node = nodes.getOrNull(channel.node) ?: continue
-            val value = sample(channel, time)
+            val stride = sampleInto(channel, time, poseValue)
             when (channel.path) {
-                "translation" -> node.t = value.copyOfRange(0, 3)
-                "scale" -> node.s = value.copyOfRange(0, 3)
-                "rotation" -> node.r = value.copyOfRange(0, 4)
+                "translation" -> System.arraycopy(poseValue, 0, node.t, 0, minOf(stride, 3))
+                "scale" -> System.arraycopy(poseValue, 0, node.s, 0, minOf(stride, 3))
+                "rotation" -> System.arraycopy(poseValue, 0, node.r, 0, minOf(stride, 4))
             }
         }
         for (index in nodes.indices) {
             val node = nodes[index]
-            node.local = trs(node.t, node.r, node.s)
+            trsInto(node.t, node.r, node.s, node.local)
         }
         updateGlobals()
         computeJoints()
     }
 
-    private fun sample(channel: Channel, time: Float): FloatArray {
+    /** Samples a track into [out] and returns the component stride. */
+    private fun sampleInto(channel: Channel, time: Float, out: FloatArray): Int {
         val times = channel.times
-        val stride = channel.values.size / times.size
+        val values = channel.values
+        val stride = values.size / times.size
         if (time <= times.first()) {
-            return channel.values.copyOfRange(0, stride)
+            System.arraycopy(values, 0, out, 0, stride)
+            return stride
         }
         if (time >= times.last()) {
-            return channel.values.copyOfRange(channel.values.size - stride, channel.values.size)
+            System.arraycopy(values, values.size - stride, out, 0, stride)
+            return stride
         }
         var index = 0
         while (index < times.size - 1 && times[index + 1] < time) index++
@@ -490,77 +510,90 @@ class SkinnedModel(context: Context, asset: String) {
         val a = index * stride
         val b = (index + 1) * stride
         if (channel.step || alpha <= 0f) {
-            return channel.values.copyOfRange(a, a + stride)
+            System.arraycopy(values, a, out, 0, stride)
+            return stride
         }
         if (channel.path == "rotation" && stride == 4) {
-            return slerp(
-                channel.values, a, channel.values, b, alpha
-            )
+            slerpInto(values, a, b, alpha, out)
+            return 4
         }
-        return FloatArray(stride) { k ->
-            channel.values[a + k] + (channel.values[b + k] - channel.values[a + k]) * alpha
+        for (k in 0 until stride) {
+            out[k] = values[a + k] + (values[b + k] - values[a + k]) * alpha
         }
+        return stride
     }
 
-    private fun slerp(values: FloatArray, a: Int, other: FloatArray, b: Int, alpha: Float): FloatArray {
+    private fun slerpInto(values: FloatArray, a: Int, b: Int, alpha: Float, out: FloatArray) {
         var ax = values[a]
         var ay = values[a + 1]
         var az = values[a + 2]
         var aw = values[a + 3]
-        var bx = other[b]
-        var by = other[b + 1]
-        var bz = other[b + 2]
-        var bw = other[b + 3]
+        var bx = values[b]
+        var by = values[b + 1]
+        var bz = values[b + 2]
+        var bw = values[b + 3]
         var dot = ax * bx + ay * by + az * bz + aw * bw
         if (dot < 0f) {
             bx = -bx; by = -by; bz = -bz; bw = -bw
             dot = -dot
         }
         if (dot > 0.9995f) {
-            return normalize(
-                floatArrayOf(
-                    ax + (bx - ax) * alpha,
-                    ay + (by - ay) * alpha,
-                    az + (bz - az) * alpha,
-                    aw + (bw - aw) * alpha
-                )
-            )
+            out[0] = ax + (bx - ax) * alpha
+            out[1] = ay + (by - ay) * alpha
+            out[2] = az + (bz - az) * alpha
+            out[3] = aw + (bw - aw) * alpha
+            normalizeInPlace(out)
+            return
         }
         val theta = kotlin.math.acos(dot.coerceIn(-1f, 1f))
         val sinTheta = kotlin.math.sin(theta)
         val wa = kotlin.math.sin((1f - alpha) * theta) / sinTheta
         val wb = kotlin.math.sin(alpha * theta) / sinTheta
-        return floatArrayOf(
-            ax * wa + bx * wb,
-            ay * wa + by * wb,
-            az * wa + bz * wb,
-            aw * wa + bw * wb
-        )
+        out[0] = ax * wa + bx * wb
+        out[1] = ay * wa + by * wb
+        out[2] = az * wa + bz * wb
+        out[3] = aw * wa + bw * wb
     }
 
     private fun updateGlobals() {
         fun walk(index: Int, parent: FloatArray) {
             val node = nodes[index]
-            node.global = Mat4.multiply(parent, node.local)
+            Mat4.multiplyInto(parent, node.local, node.global)
             for (child in nodes.indices) {
                 if (nodes[child].parent == index) walk(child, node.global)
             }
         }
-        val identity = Mat4.identity()
-        for (root in roots) walk(root, identity)
+        for (root in roots) walk(root, IDENTITY)
     }
 
     private fun computeJoints() {
         for (index in jointNodes.indices) {
             val node = nodes[jointNodes[index]]
-            val ibm = if ((index + 1) * 16 <= inverseBind.size) {
-                inverseBind.copyOfRange(index * 16, index * 16 + 16)
+            if ((index + 1) * 16 <= inverseBind.size) {
+                Mat4.multiplyInto(
+                    node.global, 0,
+                    inverseBind, index * 16,
+                    jointMatrices, index * 16
+                )
             } else {
-                Mat4.identity()
+                System.arraycopy(node.global, 0, jointMatrices, index * 16, 16)
             }
-            val matrix = Mat4.multiply(node.global, ibm)
-            System.arraycopy(matrix, 0, jointMatrices, index * 16, 16)
         }
+    }
+
+    private fun normalizeInPlace(q: FloatArray) {
+        val length = kotlin.math.sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3])
+        if (length < 1e-8f) {
+            q[0] = 0f
+            q[1] = 0f
+            q[2] = 0f
+            q[3] = 1f
+            return
+        }
+        q[0] /= length
+        q[1] /= length
+        q[2] /= length
+        q[3] /= length
     }
 
     // --- drawing ------------------------------------------------------------
@@ -611,5 +644,6 @@ class SkinnedModel(context: Context, asset: String) {
     companion object {
         const val MAX_JOINTS = 24
         const val PRIMITIVE_STRIDE = 19
+        private val IDENTITY = FloatArray(16) { if (it % 5 == 0) 1f else 0f }
     }
 }

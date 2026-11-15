@@ -423,14 +423,31 @@ internal object Mat4 {
 
     fun multiply(a: FloatArray, b: FloatArray): FloatArray {
         val result = FloatArray(16)
+        multiplyInto(a, 0, b, 0, result, 0)
+        return result
+    }
+
+    /** Allocation-free multiply, used every frame by the skinned characters. */
+    fun multiplyInto(a: FloatArray, b: FloatArray, out: FloatArray) =
+        multiplyInto(a, 0, b, 0, out, 0)
+
+    fun multiplyInto(
+        a: FloatArray,
+        aOffset: Int,
+        b: FloatArray,
+        bOffset: Int,
+        out: FloatArray,
+        outOffset: Int
+    ) {
         for (column in 0 until 4) {
             for (row in 0 until 4) {
                 var sum = 0f
-                for (k in 0 until 4) sum += a[k * 4 + row] * b[column * 4 + k]
-                result[column * 4 + row] = sum
+                for (k in 0 until 4) {
+                    sum += a[aOffset + k * 4 + row] * b[bOffset + column * 4 + k]
+                }
+                out[outOffset + column * 4 + row] = sum
             }
         }
-        return result
     }
 
     fun transformPoint(matrix: FloatArray, x: Float, y: Float, z: Float): FloatArray =

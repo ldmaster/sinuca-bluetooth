@@ -6,7 +6,7 @@ Two variants share the same skeleton and clips:
     robot  brushed metal, glowing eyes, segmented limbs
 
 The mesh is a handful of primitives joined into one object so the game can draw
-it in a single call, then bound to a 17-bone armature with automatic weights.
+it in a single call, then bound to a 20-bone armature with rigid weights.
 The cue hand has an IK target that is keyframed for the aim and strike clips and
 baked back to FK before export (glTF only carries FK tracks).
 
@@ -503,6 +503,35 @@ def celebrate_big_pose(armature, frame):
     armature.pose.bones["root"].location.z = 0.10
 
 
+def dejected_pose(armature, frame):
+    """Slumped shoulders and a low head: the shot went wrong."""
+    bones = armature.pose.bones
+    for name, angle in (("spine", 13.0), ("chest", 9.0)):
+        bone = bones[name]
+        direction = Vector((0.0, 0.0, 1.0))
+        direction.rotate(Euler((math.radians(angle), 0.0, 0.0)))
+        aim_bone(bone, bone.head.copy(), direction)
+        bpy.context.view_layer.update()
+    head = bones["head"]
+    aim_bone(head, head.head.copy(), Vector((0.0, -0.55, 0.62)))
+    bpy.context.view_layer.update()
+
+
+def applaud_pose(armature, frame):
+    """Hands clap in front of the chest: a good shot by the opponent."""
+    gap = 0.035 if (frame // 4) % 2 == 0 else 0.15
+    pose_aim(
+        armature,
+        wrist_left=(-gap, -0.30, 1.30),
+        wrist_right=(gap, -0.30, 1.30),
+        spine_lean=2.0,
+        chest_lean=2.0
+    )
+    head = armature.pose.bones["head"]
+    aim_bone(head, head.head.copy(), Vector((0.0, -0.65, 0.76)))
+    bpy.context.view_layer.update()
+
+
 def walk_pose(armature, frame):
     """Simple walk cycle: legs alternate, arms counter-swing, slight bob."""
     phase = math.sin(frame / 24.0 * math.pi * 2.0)
@@ -551,6 +580,17 @@ def build_animations(armature):
         "celebrate_big",
         [(1, idle_pose), (6, celebrate_big_pose), (12, idle_pose),
          (18, celebrate_big_pose), (34, idle_pose)]
+    )
+    make_action(
+        armature,
+        "dejected",
+        [(1, idle_pose), (8, dejected_pose), (28, dejected_pose), (40, idle_pose)]
+    )
+    make_action(
+        armature,
+        "applaud",
+        [(1, idle_pose), (4, applaud_pose), (8, applaud_pose), (12, applaud_pose),
+         (16, applaud_pose), (20, applaud_pose), (28, idle_pose)]
     )
     bpy.context.scene.frame_set(1)
 
